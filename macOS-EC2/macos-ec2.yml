@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template for EC2 macOS instance with SSM and single remote desktop user"
+
+Parameters:
+  RemoteUsername:
+    Type: String
+    Description: "Username for remote access and VNC"
+    Default: "remoteuser"
+
+  RemoteUserPassword:
+    Type: String
+    Description: "Password for remote access y VNC"
+    NoEcho: true  # Hides password on aws console
+    MinLength: 8
+    MaxLength: 64
+    AllowedPattern: "^[a-zA-Z0-9@#%^&*]+$"
+    ConstraintDescription: "The password must be between 8 and 64 characters and contain only permitted letters, numbers, and symbols."
+
+Resources:
+  # SSM Role to connect from AWS Console
+  MacInstanceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "ec2.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "SSMAccessPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "ssm:SendCommand"
+                  - "ssm:GetCommandInvocation"
+                  - "ssm:DescribeInstanceInformation"
+                  - "ssm:ListCommands"
+                  - "ssm:ListCommandInvocations"
+                  - "ec2messages:*"
+                  - "ssmmessages:*"
+                Resource: "*"
+
+  # SSM instance profile
+  MacInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Roles:
+        - !Ref MacInstanceRole
+
+  # Dedicated Host for macOS instance
+  MacDedicatedHost:
+    Type: "AWS::EC2::Host"
+    Properties:
+      AvailabilityZone: "us-east-1a"  
+      InstanceType: "mac2.metal"
+
+  # Grupo de seguridad
+  MacSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Permitir acceso VNC"
+      VpcId: !Ref "AWS::EC2::VPC::Id"
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 5900
+          ToPort: 5900
+          CidrIp: "0.0.0.0/0"  # Every IP can access it. Could change to your specific IP
+
+  # Instancia EC2 macOS
+  MacEC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: "mac1.metal"
+      ImageId: "ami-12345678"  # Default AMI of macOS for us-west-1 region
+      SecurityGroupIds:
+        - !Ref MacSecurityGroup
+      IamInstanceProfile: !Ref MacInstanceProfile
+      Tenancy: "host"
+      HostId: !Ref MacDedicatedHost
+      UserData:
+        "Fn::Base64": !Sub |
+          #!/bin/bash
+          # Update the system
+          softwareupdate -i -a
+
+          # Enable remote access (VNC)
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
+
+          # Create user for remote desktop
+          sudo sysadminctl -addUser ${RemoteUsername} -fullName "Remote User" -password ${RemoteUserPassword} -admin
+          sudo dscl . -append /Groups/com.apple.remoteDesktop privilege ${RemoteUsername}
+
+          # Configure VNC using the same user password
+          sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCAlwaysStartOnPort -bool true
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -clientopts -setvnclegacy -vnclegacy yes
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -configure -setvncpw -vncpw ${RemoteUserPassword}
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -restart -agent -privs -all
+
+Outputs:
+  MacEC2InstanceId:
+    Description: "EC2 macOS Instance ID"
+    Value: !Ref MacEC2Instance
+  MacEC2InstancePublicIP:
+    Description: "EC2 macOS instance public IP"
+    Value: !GetAtt MacEC2Instance.PublicIp
