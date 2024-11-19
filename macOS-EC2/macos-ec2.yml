@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "CloudFormation template for EC2 macOS instance with SSM and single remote desktop user"
+Description: "CloudFormation template for EC2 macOS instance with SSM and remote desktop user"
 
 Parameters:
   RemoteUsername:
@@ -58,7 +58,7 @@ Resources:
       AvailabilityZone: "us-east-1a"  
       InstanceType: "mac2.metal"
 
-  # Grupo de seguridad
+  # Security Group
   MacSecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
@@ -74,7 +74,7 @@ Resources:
   MacEC2Instance:
     Type: "AWS::EC2::Instance"
     Properties:
-      InstanceType: "mac1.metal"
+      InstanceType: "mac2.metal"
       ImageId: "ami-12345678"  # Default AMI of macOS for us-west-1 region
       SecurityGroupIds:
         - !Ref MacSecurityGroup
