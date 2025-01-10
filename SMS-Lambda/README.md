@@ -57,7 +57,7 @@ aws cloudformation create-stack --stack-name sms-lambda-stack --template-body fi
 Save this YAML template to a file, e.g., lambda_api_gateway.yaml, and deploy it using the AWS CLI:
 
 ### 3. Access the API
-Once deployed, the API Gateway will be running, and you can access it at the following URL (replace <ApiId> and <Region>):
+Once deployed, the API Gateway will be running, and you can access it at the following URL (replace `ApiId` and `Region`):
 
 ```bash
 https://<ApiId>.execute-api.<Region>.amazonaws.com/stage/send-sms
