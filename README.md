@@ -1,18 +1,14 @@
 # AWS Mini Projects
 
-Here is a collection of CloudFormation templates for various AWS projects, providing reusable infrastructure as code solutions.
-
-some proyects offer a close up setup and analisis of usecases and results, some of them dont
-
-im expecting to document the following projects
+Here is a collection of CloudFormation templates and explanations for various AWS projects, providing reusable infrastructure as code solutions.
 
 - [MacOS-EC2](./macOS-EC2) (UNTESTED)
+- [SMS-Lambda](./SMS-Lambda)
 - [highly-available-web-app](./highly-available-web-app/)
 - Tpot-HoneyPot (EC2)
 - Tree tier level web app (vm's and containers)
 - AutoScaling Web App Architecture
 - AWS Lambda Function with API Gateway
-- AWS Lambda Function processing SQS orders
 <!-- 
 - [Tpot-HoneyPot](./Tpot-HoneyPot)
 - [Tree tier level web app](./three-tier-web-app)
