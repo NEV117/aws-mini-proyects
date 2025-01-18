@@ -9,11 +9,11 @@ This template defines the following AWS resources:
 - **API Gateway**: A REST API that receives HTTP POST requests and forwards them to the Lambda function.
 - **IAM Role**: An IAM role that allows Lambda to write to CloudWatch logs and be invoked by API Gateway.
 
-The basic flow is that a user sends a POST request to API Gateway, which triggers the Lambda function to process the request.
-
 <p align="center">
   <img src="img/project.JPG" alt="Preview">
 </p>
+
+The basic flow is that a user sends a POST request to API Gateway, which triggers the Lambda function to process the request.
 
 ## Requirements
 

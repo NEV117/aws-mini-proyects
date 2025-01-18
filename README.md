@@ -8,7 +8,6 @@ Here is a collection of CloudFormation templates and explanations for various AW
 - Tpot-HoneyPot (EC2)
 - Tree tier level web app (vm's and containers)
 - AutoScaling Web App Architecture
-- AWS Lambda Function with API Gateway
 <!-- 
 - [Tpot-HoneyPot](./Tpot-HoneyPot)
 - [Tree tier level web app](./three-tier-web-app)
