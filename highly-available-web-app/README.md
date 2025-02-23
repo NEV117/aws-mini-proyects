@@ -1,4 +1,4 @@
-# Highly available web app (employee dorectory)
+# Highly available web app (employee directory)
 
 This CloudFormation template is designed to deploy a highly available Employee Directory web application. It sets up the necessary AWS infrastructure, including an S3 bucket for storing images, a DynamoDB table for employee data, IAM roles, EC2 instances, an Application Load Balancer (ALB), and an Auto Scaling Group (ASG).
 
