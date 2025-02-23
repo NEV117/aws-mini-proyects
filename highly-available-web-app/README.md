@@ -1,128 +1,60 @@
-# Notes
+# Highly available web app (employee dorectory)
+
+<p align="center">
+  <img src="img/architecture.png" alt="architecture-diagram">
+</p>
+This CloudFormation template is designed to deploy a highly avaiable Employee Directory web application. It sets up the necessary AWS infrastructure, including an S3 bucket for storing images, a DynamoDB table for employee data, IAM roles, EC2 instances, an Application Load Balancer (ALB), and an Auto Scaling Group (ASG).
+
+## Components Created
+
+- S3 Bucket: Stores images with a bucket policy to control access.
+- DynamoDB Table: Named "Employees" to store employee data.
+- IAM Role: S3DynamoDBFullAccessRole with full access to S3 and DynamoDB.
+- Launch Template: For EC2 instances with a user data script to set up the application.
+- Application Load Balancer: Distributes incoming traffic across multiple targets.
+- Auto Scaling Group: Manages the number of EC2 instances based on demand.
+
+## Parameters
+
+- VPCId: ID of the VPC where resources will be created.
+- SubnetIds: List of Subnet IDs for the ALB and Auto Scaling Group.
+- KeyName: Name of an existing KeyPair for SSH access to EC2 instances.
+- InstanceType: EC2 instance type (default: t2.micro).
+- DesiredCapacity: Desired number of instances in the Auto Scaling Group (default: 1).
+- MinSize: Minimum number of instances in the Auto Scaling Group (default: 1).
+- MaxSize: Maximum number of instances in the Auto Scaling Group (default: 3).
+- AccountNumber: AWS account number for the S3 bucket policy.
+- ImagesBucketName: Name of the S3 bucket to store images (default: employee-directory-web-app).
+
+## How to Execute
+
+Ensure you have the AWS CLI installed and configured with the necessary permissions.
+
+To deploy this stack using `terraform` go to the [terraform-folder](./terraform) and follow the instructions
+
+ - Deploy the Stack:
+ - Save the template to a file, e.g., employee-directory-template.yaml.
+ - Run the following command to create the stack:
 
 
-
-## Create s3 bucket to store the images
-
-create s3 bucket:
--ACLS disabled
--bucket in same region
-
-bucket policies:
-
-```json
-{
-    "Version": "2012-10-17", 
-    "Statement": [
-        {
-            "Sid": "AllowS3ReadAccess",
-            "Effect": "Allow",
-            "Principal": {
-                "AWS": "arn:aws:iam::<INSERT-ACCOUNT-NUMBER>: role/S3DynamoDBFullAccessRole"
-            },
-            "Action": "s3:*",
-            "Resource":[
-                "arn:aws:s3:::<INSERT-BUCKET-NAME>",
-                "arn:aws:s3:::<INSERT-BUCKET-NAME>/*"
-                ]
-            }
-        ]
-    }
-```
-
-## Create dynamoDB table
-
-table name = Employees
-
-Partition key = string: id
-
-## ROLE
-
-S3DynamoDBFullAccessRole
-
-Trustd entity type: AWS service
-Common use cases: EC2
-
-Permissions policies (AWS Managed Policies):
-
-- AmazonS3FullAccess
-- AmazonDynamoDBFullAccess
-
-# Launching the load baalncer and the autoscaling group
-
-## Launch app instance (EC2)
-
-Attach role on ec2 instance
-
-ec2 config:
-
-- instance type: t2.micro
-- os: amazon linux 2023
-- key pair: your-key-pair
-- security group: your-security-group (Inbound on 80, 22) (outbound 443)
-- S3DynamoDBFullAccessRole
-- Availability-zone on us-east-a or us-east-b
-
-user-data:
 ```bash
-#!/bin/bash -ex
-wget https://aws-tc-largeobjects.s3-us-west-2.amazonaws.com/DEV-AWS-MO-GCNv2/FlaskApp.zip
-unzip FlaskApp.zip
-cd FlaskApp/
-yum -y install python3-pip
-pip install -r requirements.txt
-yum -y install stress
-export PHOTOS_BUCKET=employee-directory-web-app 
-export AWS_DEFAULT_REGION=us-east-1
-export DYNAMO_MODE=on
-FLASK_APP=application.py /usr/local/bin/flask run --host=0.0.0.0 --port=80
+aws cloudformation create-stack 
+--stack-name employee-directory-stack 
+--template-body file://employee-directory-template.yaml 
+--parameters 
+ParameterKey=VPCId,ParameterValue=<your-vpc-id> ParameterKey=SubnetIds,ParameterValue=<your-subnet-ids> ParameterKey=KeyName,ParameterValue=<your-key-name> ParameterKey=InstanceType,ParameterValue=<your-instance-type> ParameterKey=DesiredCapacity,ParameterValue=<desired-capacity> ParameterKey=MinSize,ParameterValue=<min-size> ParameterKey=MaxSize,ParameterValue=<max-size> ParameterKey=AccountNumber,ParameterValue=<your-account-number> ParameterKey=ImagesBucketName,ParameterValue=<your-bucket-name>
 ```
 
-## Create Application Load Balancer (ABL)
+Replace placeholders (e.g., <your-vpc-id>) with actual values.
 
-Apllication load balancer:
+## Monitor the Stack
 
-- internet-facing load balancer
+Use the AWS Management Console or CLI to monitor the stack creation process.
 
-- load balancer IP address type
+ - Access the Application: Once the stack is created, access the application using the DNS name of the Application Load Balancer, which is output as LoadBalancerDNSName.
 
+## Acknolegments
 
-Network:
-- VPC: your-vpc
-- 2 availability zones (us-east-1a) (us-east-1b)
+The code used in this repo comes from aws cloud formation [AWS Technical Essentials](https://aws.amazon.com/training/classroom/aws-technical-essentials/) course
 
-Security Group
-- HTTP (inbound)
-- All access (outbound)
-
-
-Target Group
-
-- type: instance
-- vpc and subnet must be the same as teh previuos configuration 
-
-Healt checks:
-
-- protocol: HTTP
-- health cheack path: /
-- port: Traffic port
-- Healty threshould : 2
-- Unhealthy threshould : 5
-- Timeout: 30
-- Interval: 40
-- success code: 200
-
-Check load balancer on  ABL dns name
-
-## Launch template
-
-- confugure the same as the ec2
-- it is needed to configure the vpc but not the az's
-
-## Auto scaling group
-
-- set the previuos launch template
-- set desire capacity
-- set scaling limits (min - max)
-- set network availablility zones
-
+This implemetantion dosen't aim to claim credit of this code or course it itends to expand on it by showing how infrastructure as code could be inplemented

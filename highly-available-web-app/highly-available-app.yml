@@ -1,0 +1,278 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  CloudFormation template for the Employee Directory web application.
+  This template creates:
+  - S3 bucket for storing images (with bucket policy).
+  - DynamoDB table "Employees".
+  - IAM role S3DynamoDBFullAccessRole with AmazonS3FullAccess and AmazonDynamoDBFullAccess policies.
+  - Launch template for EC2 instances with the user data script.
+  - Application load balancer, target group, and listener.
+  - Auto Scaling Group for the application instances.
+
+Parameters:
+  VPCId:
+    Description: ID of the VPC where the resources will be created.
+    Type: AWS::EC2::VPC::Id
+
+  SubnetIds:
+    Description: List of Subnet IDs (comma separated) for the ALB and Auto Scaling Group.
+    Type: List<AWS::EC2::Subnet::Id>
+
+  KeyName:
+    Description: Name of an existing KeyPair for SSH access to EC2 instances.
+    Type: AWS::EC2::KeyPair::KeyName
+
+  InstanceType:
+    Description: EC2 instance type.
+    Type: String
+    Default: t2.micro
+
+  DesiredCapacity:
+    Description: Desired number of instances in the Auto Scaling Group.
+    Type: Number
+    Default: 1
+
+  MinSize:
+    Description: Minimum number of instances in the Auto Scaling Group.
+    Type: Number
+    Default: 1
+
+  MaxSize:
+    Description: Maximum number of instances in the Auto Scaling Group.
+    Type: Number
+    Default: 3
+
+  AccountNumber:
+    Description: AWS account number (without dashes) for the S3 bucket policy.
+    Type: String
+
+  ImagesBucketName:
+    Description: Name of the S3 bucket to store images.
+    Type: String
+    Default: employee-directory-web-app
+
+Resources:
+  #########################################
+  # S3 bucket and its policy
+  #########################################
+  ImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref ImagesBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  ImagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ImagesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowS3ReadAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AccountNumber}:role/S3DynamoDBFullAccessRoleIaC"
+            Action: "s3:*"
+            Resource:
+              - !Sub "arn:aws:s3:::${ImagesBucketName}"
+              - !Sub "arn:aws:s3:::${ImagesBucketName}/*"
+
+  #########################################
+  # DynamoDB Table
+  #########################################
+  EmployeesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Employees
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  #########################################
+  # IAM Role and Instance Profile
+  #########################################
+  S3DynamoDBFullAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: S3DynamoDBFullAccessRoleIaC
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: S3DynamoDBFullAccessInstanceProfileIaC
+      Roles:
+        - !Ref S3DynamoDBFullAccessRole
+
+  #########################################
+  # Security Groups
+  #########################################
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Grupo de seguridad para instancias EC2 (Inbound: 22 y 80; Outbound: 443)"
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Grupo de seguridad para el ALB (Inbound: 80; Outbound: todo)"
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 0
+          CidrIp: 0.0.0.0/0
+
+  #########################################
+  # Launch Template for EC2 Instances
+  #########################################
+  AppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: AppLaunchTemplate
+      LaunchTemplateData:
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyName
+        ImageId: ami-085ad6ae776d8f09c
+        SecurityGroupIds:
+          - !Ref EC2SecurityGroup
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        UserData: !Base64 |
+          #!/bin/bash -ex
+          wget https://aws-tc-largeobjects.s3-us-west-2.amazonaws.com/DEV-AWS-MO-GCNv2/FlaskApp.zip
+          unzip FlaskApp.zip
+          cd FlaskApp/
+          yum -y install python3-pip
+          pip install -r requirements.txt
+          yum -y install stress
+          export PHOTOS_BUCKET=employee-directory-web-app
+          export AWS_DEFAULT_REGION=us-east-1
+          export DYNAMO_MODE=on
+          FLASK_APP=application.py /usr/local/bin/flask run --host=0.0.0.0 --port=80
+
+  #########################################
+  # Application Load Balancer and components
+  #########################################
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: AppLoadBalancer
+      Scheme: internet-facing
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Type: application
+
+  AppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: AppTargetGroup
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VPCId
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: traffic-port
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 40
+      HealthCheckTimeoutSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Matcher:
+        HttpCode: "200"
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AppTargetGroup
+
+  #########################################
+  # Auto Scaling Group
+  #########################################
+  AppAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: AppASG
+      VPCZoneIdentifier: !Ref SubnetIds
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppLaunchTemplate
+        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      TargetGroupARNs:
+        - !Ref AppTargetGroup
+
+  #########################################
+  # Target Tracking Scaling Policies
+  #########################################
+  ScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AppAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 30.0
+        DisableScaleIn: false
+
+  ScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AppAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 30.0
+        DisableScaleIn: false
+
+Outputs:
+  LoadBalancerDNSName:
+    Description: "Application Load Balancer DNS"
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
