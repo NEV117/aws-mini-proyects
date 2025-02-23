@@ -5,13 +5,12 @@ This project contains an AWS CloudFormation template that deploys an AWS Lambda 
 ## Description
 
 This template defines the following AWS resources:
+
 - **AWS Lambda**: A function used to send SMS (code is in `index.mjs`).
 - **API Gateway**: A REST API that receives HTTP POST requests and forwards them to the Lambda function.
 - **IAM Role**: An IAM role that allows Lambda to write to CloudWatch logs and be invoked by API Gateway.
 
-<p align="center">
-  <img src="img/project.JPG" alt="Preview">
-</p>
+![architecture-diagram](img/architecture.png)
 
 The basic flow is that a user sends a POST request to API Gateway, which triggers the Lambda function to process the request.
 
@@ -49,14 +48,17 @@ Before deploying the template, you must have your Lambda function code in a `.zi
 ```bash
 aws s3 cp function.zip s3://your-s3-bucket/
 ```
+
 ### 2. Deploy the CloudFormation Template
 
 ```bash
 aws cloudformation create-stack --stack-name sms-lambda-stack --template-body file://sms-lambda-iac.yaml --capabilities CAPABILITY_IAM
 ```
+
 Save this YAML template to a file, e.g., lambda_api_gateway.yaml, and deploy it using the AWS CLI:
 
 ### 3. Access the API
+
 Once deployed, the API Gateway will be running, and you can access it at the following URL (replace `ApiId` and `Region`):
 
 ```bash
@@ -64,6 +66,7 @@ https://<ApiId>.execute-api.<Region>.amazonaws.com/stage/send-sms
 ```
 
 ### 4. Make a POST request to the API
+
 Send a POST request to the API URL to trigger the Lambda function. Here's an example of how to make a request using curl:
 
 ```bash

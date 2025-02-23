@@ -17,6 +17,7 @@ Before starting, Make sure to read the readme in the parent folder and to have t
 ## How to Use
 
 ### 1. Set Up Terraform variables by creating `terraform.tfvars` (example)
+
 ```bash
 # terraform.tfvars
 vpc_id        = "vpc-id"
@@ -26,22 +27,31 @@ account_number = "aws-account-number"
 ```
 
 ### 2. **Initialize Terraform**
+
 Run the following command to initialize Terraform and download the required plugins:
+
 ```bash
 terraform init
 ```
+
 ### 3. **Review the Execution Plan**
+
 Before applying changes, review the execution plan:
+
 ```bash
 terraform plan
 ```
+
 This command shows the resources that will be created.
 
 ### 4. **Apply the Changes**
+
 To deploy the resources on AWS, run:
+
 ```bash
 terraform apply
 ```
+
 Confirm by typing yes when prompted.
 
 ### 5. **Verify the Resources**

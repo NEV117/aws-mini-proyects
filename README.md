@@ -12,7 +12,6 @@ Here is a collection of CloudFormation templates and explanations for various AW
 - [Tpot-HoneyPot](./Tpot-HoneyPot)
 - [Tree tier level web app](./three-tier-web-app)
 - [AutoScaling Web App Architecture](./AutoScaling-Web-App)
-- [AWS Lambda Function with API Gateway](./Lambda-API-Gateway)
 - [AWS Lambda Function processing SQS orders](./Lambda-SQS) -->
 
 ## Considerations

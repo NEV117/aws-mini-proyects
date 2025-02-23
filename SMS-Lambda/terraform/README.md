@@ -9,9 +9,11 @@ Before starting, Make sure to read the readme in the parent folder and to have t
 1. **Terraform**: Terraform: Download it from [Terraform Downloads](https://www.terraform.io/downloads) and install it according to your operating system.
 2. **AWS CLI**: Download it from [AWS CLI](https://aws.amazon.com/cli/) and install it.
 3. **AWS Credetials**: CConfigure your credentials by running:
+
    ```bash
    aws configure
     ```
+
 4. **Lambda function code**: The Lambda function code must be packaged in a `.zip` file (e.g., `function.zip`) and uploaded to an S3 bucket.
 5. **Configure Amazon SNS for SMS**:
    - **Enable SMS in SNS**:
@@ -40,28 +42,39 @@ aws s3 cp function.zip s3://your-s3-bucket/
 ```
 
 ### 2. **Initialize Terraform**
+
 Run the following command to initialize Terraform and download the required plugins:
+
 ```bash
 terraform init
 ```
+
 ### 3. **Review the Execution Plan**
+
 Before applying changes, review the execution plan:
+
 ```bash
 terraform plan
 ```
+
 This command shows the resources that will be created.
 
 ### 4. **Apply the Changes**
+
 To deploy the resources on AWS, run:
+
 ```bash
 terraform apply
 ```
+
 Confirm by typing yes when prompted.
 
 ### 5. **Verify the Resources**
+
 Once the execution is complete, you can verify the created resources:
- - Lambda Function: Check it in the AWS Lambda console.
- - API Gateway: Check it in the API Gateway console.
+
+- Lambda Function: Check it in the AWS Lambda console.
+- API Gateway: Check it in the API Gateway console.
 
  Once deployed, the API Gateway will be running, and you can access it at the following URL (replace `ApiId` and `Region`):
 
