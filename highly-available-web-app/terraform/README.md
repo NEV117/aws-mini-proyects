@@ -8,7 +8,7 @@ Before starting, Make sure to read the readme in the parent folder and to have t
 
 1. **Terraform**: Terraform: Download it from [Terraform Downloads](https://www.terraform.io/downloads) and install it according to your operating system.
 2. **AWS CLI**: Download it from [AWS CLI](https://aws.amazon.com/cli/) and install it.
-3. **AWS Credetials**: CConfigure your credentials by running:
+3. **AWS Credetials**: Configure your credentials by running:
 
    ```bash
    aws configure

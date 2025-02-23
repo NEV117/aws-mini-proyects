@@ -1,6 +1,14 @@
 # Highly available web app (employee directory)
 
-This CloudFormation template is designed to deploy a highly available Employee Directory web application. It sets up the necessary AWS infrastructure, including an S3 bucket for storing images, a DynamoDB table for employee data, IAM roles, EC2 instances, an Application Load Balancer (ALB), and an Auto Scaling Group (ASG).
+The `Employee Directory Web Application` is designed to be a `highly available` and scalable system deployed on AWS using CloudFormation. This infrastructure ensures reliability and performance by leveraging multiple AWS services.
+
+The application is hosted on Amazon `EC2 instances` within an `Auto Scaling Group (ASG)`. This setup dynamically adjusts the number of instances based on demand, ensuring that the application can handle varying levels of traffic efficiently. The instances are distributed across `multiple Availability Zones (AZs)`, which enhances fault tolerance. If one availability zone fails, the application remains operational through instances in other zones.
+
+To efficiently manage incoming traffic, an `Application Load Balancer (ALB)` is used. The ALB distributes requests among the EC2 instances, improving performance and availability. Additionally, it performs health checks on instances and automatically reroutes traffic to healthy ones, ensuring a seamless user experience.
+
+The application stores employee data in `DynamoDB`, a fully managed NoSQL database that scales automatically. This eliminates the need for manual database management and ensures high availability. Employee images are stored in Amazon `S3`, which offers durable and secure storage. The S3 bucket policy restricts access to authorized roles, ensuring data security.
+
+Security is enforced through `IAM roles` and `security groups`. The EC2 instances are granted limited permissions using an IAM instance profile, which allows them to interact with S3 and DynamoDB without exposing credentials. Security groups control inbound and outbound traffic, restricting access to essential ports such as port 80 for HTTP and port 22 for SSH.
 
 ![architecture-diagram](img/architecture.png)
 
@@ -36,10 +44,13 @@ To deploy this stack using `terraform` go to the [terraform-folder](./terraform)
 - Run the following command to create the stack:
 
 ```bash
-aws cloudformation create-stack 
---stack-name employee-directory-stack 
---template-body file://employee-directory-template.yaml 
---parameters ParameterKey=VPCId,ParameterValue=<your-vpc-id> ParameterKey=SubnetIds,ParameterValue=<your-subnet-ids> ParameterKey=KeyName,ParameterValue=<your-key-name> ParameterKey=InstanceType,ParameterValue=<your-instance-type> ParameterKey=DesiredCapacity,ParameterValue=<desired-capacity> ParameterKey=MinSize,ParameterValue=<min-size> ParameterKey=MaxSize,ParameterValue=<max-size> ParameterKey=AccountNumber,ParameterValue=<your-account-number> ParameterKey=ImagesBucketName,ParameterValue=<your-bucket-name>
+aws cloudformation create-stack --stack-name EmployeeDirectoryStack \
+  --template-body file://employee-directory.yml \
+  --parameters ParameterKey=VPCId,ParameterValue=<VPC-ID> \
+               ParameterKey=SubnetIds,ParameterValue=<Subnet-1,Subnet-2> \
+               ParameterKey=KeyName,ParameterValue=<Key-Pair> \
+  --capabilities CAPABILITY_NAMED_IAM
+
 ```
 
 Replace placeholders (e.g., <your-vpc-id>) with actual values.
