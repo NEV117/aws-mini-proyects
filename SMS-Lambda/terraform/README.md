@@ -1,6 +1,6 @@
 # Deploy with Terraform
 
-If you prefer to use terraform for IaC here is a template you can modify, just make sure to set your bucket `name` and `key` in `main.tf`
+If you prefer to use terraform for IaC here is a template you can modify. It creates the S3 bucket for the Lambda code and uploads `function.zip` to it, so you don't need to create the bucket yourself.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ Before starting, Make sure to read the readme in the parent folder and to have t
    aws configure
     ```
 
-4. **Lambda function code**: The Lambda function code must be packaged in a `.zip` file (e.g., `function.zip`) and uploaded to an S3 bucket.
+4. **Lambda function code**: The Lambda function code must be packaged in a file named `function.zip` in this `terraform/` directory.
 5. **Configure Amazon SNS for SMS**:
    - **Enable SMS in SNS**:
      1. Go to the Amazon SNS console.
@@ -31,15 +31,15 @@ Before starting, Make sure to read the readme in the parent folder and to have t
 
 ## How to Use
 
-### 1. **Upload your Lambda code to S3**
+### 1. **Package your Lambda code**
 
-Before deploying the template, you must have your Lambda function code in a `.zip` file uploaded to an S3 bucket. You can do this via the S3 console or the AWS CLI.
-
-(the funtion code is in /SMS-Lambda/lambda_code/index.mjs)
+Before deploying, package the Lambda function code (in `/SMS-Lambda/lambda_code/index.mjs`) into `function.zip`. Terraform creates the S3 bucket and uploads this file to it. Run this from the `terraform/` directory:
 
 ```bash
-aws s3 cp function.zip s3://your-s3-bucket/
+zip -j function.zip ../lambda_code/index.mjs
 ```
+
+Rebuild the zip whenever the code changes, then run `terraform apply` to update the function.
 
 ### 2. **Initialize Terraform**
 

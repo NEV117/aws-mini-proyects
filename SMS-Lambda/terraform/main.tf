@@ -39,6 +39,18 @@ resource "aws_iam_role_policy" "lambda_execution_policy" {
   })
 }
 
+resource "aws_s3_bucket" "lambda_code" {
+  # Bucket names are global, so the account ID and region keep this one unique.
+  bucket = "sms-lambda-bucket-${data.aws_caller_identity.current.account_id}-${var.region}"
+}
+
+resource "aws_s3_object" "lambda_zip" {
+  bucket      = aws_s3_bucket.lambda_code.id
+  key         = "function.zip"
+  source      = "${path.module}/function.zip"
+  source_hash = filebase64sha256("${path.module}/function.zip")
+}
+
 resource "aws_lambda_function" "lambda_function" {
   function_name = "SendSMS"
   handler       = "index.handler"
@@ -46,8 +58,9 @@ resource "aws_lambda_function" "lambda_function" {
   runtime       = "nodejs22.x"
   timeout       = 30
 
-  s3_bucket = "your-s3-bucket"
-  s3_key    = "function.zip"
+  s3_bucket        = aws_s3_bucket.lambda_code.id
+  s3_key           = aws_s3_object.lambda_zip.key
+  source_code_hash = filebase64sha256("${path.module}/function.zip")
 }
 
 resource "aws_api_gateway_rest_api" "sms_lambda_api" {
