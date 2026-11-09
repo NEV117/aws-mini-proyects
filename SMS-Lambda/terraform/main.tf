@@ -2,8 +2,18 @@ provider "aws" {
   region = var.region
 }
 
+locals {
+  common_tags = {
+    Service     = var.service
+    Environment = var.environment
+    Owner       = var.owner
+    Project     = var.project
+  }
+}
+
 resource "aws_iam_role" "lambda_execution_role" {
   name = "LambdaExecutionRole"
+  tags = local.common_tags
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -42,6 +52,7 @@ resource "aws_iam_role_policy" "lambda_execution_policy" {
 resource "aws_s3_bucket" "lambda_code" {
   # Bucket names are global, so the account ID and region keep this one unique.
   bucket = "sms-lambda-bucket-${data.aws_caller_identity.current.account_id}-${var.region}"
+  tags   = local.common_tags
 }
 
 resource "aws_s3_object" "lambda_zip" {
@@ -49,6 +60,7 @@ resource "aws_s3_object" "lambda_zip" {
   key         = "function.zip"
   source      = "${path.module}/function.zip"
   source_hash = filebase64sha256("${path.module}/function.zip")
+  tags        = local.common_tags
 }
 
 resource "aws_lambda_function" "lambda_function" {
@@ -61,10 +73,13 @@ resource "aws_lambda_function" "lambda_function" {
   s3_bucket        = aws_s3_bucket.lambda_code.id
   s3_key           = aws_s3_object.lambda_zip.key
   source_code_hash = filebase64sha256("${path.module}/function.zip")
+
+  tags = local.common_tags
 }
 
 resource "aws_api_gateway_rest_api" "sms_lambda_api" {
   name = "SMSLambdaApi"
+  tags = local.common_tags
 }
 
 resource "aws_api_gateway_resource" "api_resource" {
@@ -98,6 +113,7 @@ resource "aws_api_gateway_stage" "api_stage" {
   rest_api_id = aws_api_gateway_rest_api.sms_lambda_api.id
   deployment_id = aws_api_gateway_deployment.api_deployment.id
   stage_name    = "stage"
+  tags          = local.common_tags
 }
 
 resource "aws_lambda_permission" "lambda_permission" {
@@ -112,4 +128,28 @@ data "aws_caller_identity" "current" {}
 
 variable "region" {
   default = "us-east-1" //Change as needed
+}
+
+variable "service" {
+  description = "Value of the Service tag"
+  type        = string
+  default     = "sms-notification-service"
+}
+
+variable "environment" {
+  description = "Value of the Environment tag"
+  type        = string
+  default     = "dev"
+}
+
+variable "owner" {
+  description = "Value of the Owner tag"
+  type        = string
+  default     = "cloud-platform-team"
+}
+
+variable "project" {
+  description = "Value of the Project tag"
+  type        = string
+  default     = "aws-mini-projects"
 }
