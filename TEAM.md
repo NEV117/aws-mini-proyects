@@ -1,4 +1,4 @@
-# Organization and Architecture: AWS Mini Projects
+# Organization and Architecture: AWS Mini Projects :P
 
 > **Test data.** The organization, people, and team names in this file are fictional and were created for testing. The systems and components match the infrastructure code in this repository.
 
