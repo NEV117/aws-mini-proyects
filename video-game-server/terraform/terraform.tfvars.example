@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars and adjust.
+
+accept_minecraft_eula = true # https://aka.ms/MinecraftEULA
+
+# Compliance tags
+service     = "minecraft-game-server"
+environment = "dev"
+team        = "cloud-platform-team"
+owner       = "ana.torres@example.com"
+
+# Horizontal scaling
+min_servers               = 1
+max_servers               = 4
+target_players_per_server = 10
+target_cpu_percent        = 70
+
+# Logging
+log_retention_days   = 30
+enable_vpc_flow_logs = true
+
+# Restrict who can join (recommended)
+# allowed_player_cidrs = ["203.0.113.10/32"]
