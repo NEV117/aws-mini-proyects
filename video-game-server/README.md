@@ -4,7 +4,7 @@ New Minecraft video game server as an example. Configuration for mods is not cov
 
 A basic Minecraft Java Edition server on AWS, deployed with Terraform. It scales horizontally: when the servers get busy, the Auto Scaling group adds more of them behind one Network Load Balancer.
 
-## Architecture
+## Architecture  _
 
 ```text
 Players ──TCP 25565──▶ Network Load Balancer (sticky by source IP)
