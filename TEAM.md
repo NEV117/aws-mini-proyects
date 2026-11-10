@@ -36,41 +36,44 @@ Each system has exactly one owning team.
 
 ## Components
 
+Each component lists its source files as paths from the repository root. A file that defines several components, such as a CloudFormation template or a Terraform `main.tf`, is listed under each of them. Every file tracked in the repository belongs to at least one component.
+
 ### SMS Notification Service
 
 Source: `SMS-Lambda/`
 
-| Component | Type | Purpose |
-|---|---|---|
-| SMS REST API | Amazon API Gateway | Receives HTTP POST requests |
-| SMS Sender Function | AWS Lambda (Node.js) | Validates the request and publishes the message |
-| SMS Execution Role | AWS IAM role | Grants the function its permissions |
+| Component | Type | Purpose | Source files |
+|---|---|---|---|
+| SMS REST API | Amazon API Gateway | Receives HTTP POST requests on `POST /stage/send-sms` | `SMS-Lambda/sms-lambda-iac.yaml`, `SMS-Lambda/cloudformation-template.yaml`, `SMS-Lambda/terraform/main.tf` |
+| SMS Sender Function | AWS Lambda (Node.js) | Validates the request and publishes the message | `SMS-Lambda/index.mjs`, `SMS-Lambda/lambda_code/index.mjs`, `SMS-Lambda/sms-lambda-iac.yaml`, `SMS-Lambda/cloudformation-template.yaml`, `SMS-Lambda/terraform/main.tf` |
+| SMS Execution Role | AWS IAM role | Grants the function its permissions | `SMS-Lambda/sms-lambda-iac.yaml`, `SMS-Lambda/cloudformation-template.yaml`, `SMS-Lambda/terraform/main.tf` |
+| SMS Code Bucket | Amazon S3 | Stores the function's code package (Terraform deployment only) | `SMS-Lambda/terraform/main.tf` |
 
 ### Employee Directory Web App
 
 Source: `highly-available-web-app/`
 
-| Component | Type | Purpose |
-|---|---|---|
-| Application Load Balancer | Elastic Load Balancing | Distributes traffic to the application instances |
-| Application Target Group | Elastic Load Balancing | Tracks the instances that receive traffic |
-| Application Auto Scaling Group | Amazon EC2 Auto Scaling | Scales the instances across Availability Zones |
-| Application Launch Template | Amazon EC2 | Defines how instances are launched and bootstrapped |
-| Flask Application | Python application on EC2 | Serves the employee directory |
-| Employee Images Bucket | Amazon S3 | Stores employee photos |
-| Employees Table | Amazon DynamoDB | Stores employee records |
-| Application Instance Role | AWS IAM role | Grants the instances access to S3 and DynamoDB |
+| Component | Type | Purpose | Source files |
+|---|---|---|---|
+| Application Load Balancer | Elastic Load Balancing | Distributes traffic to the application instances | `highly-available-web-app/highly-available-app.yml`, `highly-available-web-app/terraform/main.tf`, `highly-available-web-app/terraform/variables.tf`, `highly-available-web-app/terraform/terraform.tfvars` |
+| Application Target Group | Elastic Load Balancing | Tracks the instances that receive traffic | `highly-available-web-app/highly-available-app.yml`, `highly-available-web-app/terraform/main.tf` |
+| Application Auto Scaling Group | Amazon EC2 Auto Scaling | Scales the instances across Availability Zones | `highly-available-web-app/highly-available-app.yml`, `highly-available-web-app/terraform/main.tf`, `highly-available-web-app/terraform/variables.tf`, `highly-available-web-app/terraform/terraform.tfvars` |
+| Application Launch Template | Amazon EC2 | Defines how instances are launched and bootstrapped | `highly-available-web-app/highly-available-app.yml`, `highly-available-web-app/terraform/main.tf`, `highly-available-web-app/terraform/variables.tf`, `highly-available-web-app/terraform/terraform.tfvars`, `highly-available-web-app/user_data.sh` |
+| Flask Application | Python application on EC2 | Serves the employee directory | `highly-available-web-app/user_data.sh` |
+| Employee Images Bucket | Amazon S3 | Stores employee photos | `highly-available-web-app/highly-available-app.yml`, `highly-available-web-app/terraform/main.tf`, `highly-available-web-app/terraform/variables.tf`, `highly-available-web-app/terraform/terraform.tfvars` |
+| Employees Table | Amazon DynamoDB | Stores employee records | `highly-available-web-app/highly-available-app.yml`, `highly-available-web-app/terraform/main.tf` |
+| Application Instance Role | AWS IAM role | Grants the instances access to S3 and DynamoDB | `highly-available-web-app/highly-available-app.yml`, `highly-available-web-app/terraform/main.tf` |
 
 ### macOS Remote Desktop
 
 Source: `macOS-EC2/`
 
-| Component | Type | Purpose |
-|---|---|---|
-| macOS Instance | Amazon EC2 | Runs the remote macOS desktop |
-| macOS Dedicated Host | Amazon EC2 Dedicated Host | Provides the hardware the instance requires |
-| macOS Security Group | Amazon EC2 security group | Controls network access to the instance |
-| macOS Instance Role | AWS IAM role | Grants the instance its permissions |
+| Component | Type | Purpose | Source files |
+|---|---|---|---|
+| macOS Instance | Amazon EC2 | Runs the remote macOS desktop | `macOS-EC2/macos-ec2.yml` |
+| macOS Dedicated Host | Amazon EC2 Dedicated Host | Provides the hardware the instance requires | `macOS-EC2/macos-ec2.yml` |
+| macOS Security Group | Amazon EC2 security group | Controls network access to the instance | `macOS-EC2/macos-ec2.yml` |
+| macOS Instance Role | AWS IAM role | Grants the instance its permissions | `macOS-EC2/macos-ec2.yml` |
 
 ### Minecraft Game Server
 
@@ -94,12 +97,13 @@ Source: `video-game-server/`
 
 ### Project Documentation
 
-Source: `README.md` and the `README.md` file in each project folder
+Source: `README.md` and the documentation files in each project folder
 
-| Component | Type | Purpose |
-|---|---|---|
-| Repository README | Markdown | Introduces the collection of projects |
-| Project READMEs | Markdown | Explain how to deploy and use each project |
+| Component | Type | Purpose | Source files |
+|---|---|---|---|
+| Repository README | Markdown | Introduces the collection of projects | `README.md` |
+| Project READMEs | Markdown and images | Explain how to deploy and use each project | `SMS-Lambda/README.md`, `SMS-Lambda/terraform/README.md`, `SMS-Lambda/img/architecture.png`, `SMS-Lambda/img/project.JPG`, `highly-available-web-app/README.md`, `highly-available-web-app/terraform/README.md`, `highly-available-web-app/img/architecture.png`, `highly-available-web-app/old_notes.md`, `macOS-EC2/README.md` |
+| Repository Metadata | Repository files | License, Git ignore rules, and this organization file | `LICENSE`, `TEAM.md`, `.gitignore`, `SMS-Lambda/terraform/.gitignore`, `highly-available-web-app/terraform/.gitignore` |
 
 ## Dependencies
 
@@ -109,6 +113,7 @@ Source: `README.md` and the `README.md` file in each project folder
 |---|---|---|
 | SMS REST API | SMS Sender Function | Forwards each POST request to the function |
 | SMS Sender Function | SMS Execution Role | Uses the role's permissions |
+| SMS Sender Function | SMS Code Bucket | Loads its code package from the bucket (Terraform deployment only) |
 | Application Load Balancer | Application Target Group | Forwards traffic to the group |
 | Application Target Group | Application Auto Scaling Group | Receives its instances from the group |
 | Application Auto Scaling Group | Application Launch Template | Launches instances from the template |
