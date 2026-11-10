@@ -1,0 +1,172 @@
+#!/bin/bash
+# Bootstraps a Minecraft Java Edition server on Amazon Linux 2023.
+# Rendered by Terraform templatefile(): $${...} is Terraform, plain $VAR is bash.
+set -euxo pipefail
+
+MANIFEST_URL="https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
+MC_HOME=/opt/minecraft
+
+dnf install -y jq amazon-cloudwatch-agent
+
+# --- Ship logs to CloudWatch Logs -------------------------------------------
+# Started first so the rest of the bootstrap is captured too. One log stream
+# per instance ID, so logs survive scale-in and instance replacement.
+mkdir -p "$MC_HOME/logs"
+touch /var/log/player-metric.log
+
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF'
+{
+  "agent": {
+    "run_as_user": "root"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/cloud-init-output.log",
+            "log_group_name": "${bootstrap_log_group}",
+            "log_stream_name": "{instance_id}"
+          },
+          {
+            "file_path": "/opt/minecraft/logs/latest.log",
+            "log_group_name": "${server_log_group}",
+            "log_stream_name": "{instance_id}"
+          },
+          {
+            "file_path": "/var/log/player-metric.log",
+            "log_group_name": "${player_metric_log_group}",
+            "log_stream_name": "{instance_id}"
+          }
+        ]
+      }
+    }
+  }
+}
+EOF
+
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config -m ec2 -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+
+# --- Resolve the server version and the Java version it needs ---------------
+MC_VERSION="${minecraft_version}"
+if [ "$MC_VERSION" = "latest" ]; then
+  MC_VERSION=$(curl -fsSL "$MANIFEST_URL" | jq -r '.latest.release')
+fi
+
+VERSION_URL=$(curl -fsSL "$MANIFEST_URL" | jq -r --arg v "$MC_VERSION" '.versions[] | select(.id == $v) | .url')
+if [ -z "$VERSION_URL" ]; then
+  echo "Minecraft version $MC_VERSION not found in the version manifest" >&2
+  exit 1
+fi
+
+VERSION_JSON=$(curl -fsSL "$VERSION_URL")
+SERVER_URL=$(echo "$VERSION_JSON" | jq -r '.downloads.server.url')
+JAVA_MAJOR=$(echo "$VERSION_JSON" | jq -r '.javaVersion.majorVersion // 21')
+
+dnf install -y "java-$JAVA_MAJOR-amazon-corretto-headless"
+
+# --- Install the server -----------------------------------------------------
+useradd --system --home-dir "$MC_HOME" --create-home --shell /sbin/nologin minecraft || true
+curl -fsSL -o "$MC_HOME/server.jar" "$SERVER_URL"
+
+# The EULA is accepted through the accept_minecraft_eula Terraform variable.
+echo "eula=true" > "$MC_HOME/eula.txt"
+
+cat > "$MC_HOME/server.properties" <<'EOF'
+server-port=${server_port}
+max-players=${max_players}
+motd=${motd}
+difficulty=${difficulty}
+online-mode=true
+# Set explicitly: newer Minecraft versions default to white-list=true, which
+# rejects everyone because the list is empty. Anyone with a Minecraft account
+# can join; restrict access with allowed_player_cidrs instead.
+white-list=false
+enforce-whitelist=false
+enable-rcon=false
+view-distance=10
+EOF
+
+chown -R minecraft:minecraft "$MC_HOME"
+
+cat > /etc/systemd/system/minecraft.service <<'EOF'
+[Unit]
+Description=Minecraft Java Edition server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=minecraft
+WorkingDirectory=/opt/minecraft
+ExecStart=/usr/bin/java -Xms${java_heap_mb}M -Xmx${java_heap_mb}M -jar server.jar nogui
+# Java exits with 143 after SIGTERM; the server saves the world on shutdown.
+SuccessExitStatus=0 143
+TimeoutStopSec=90
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# --- Player count metric for auto scaling -----------------------------------
+# Counts established TCP connections on the game port and publishes the value
+# to CloudWatch every minute. The Auto Scaling group averages it per server.
+cat > /usr/local/bin/publish-player-metric.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+REGION=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" "http://169.254.169.254/latest/meta-data/placement/region")
+PLAYERS=$(ss -Htn state established '( sport = :${server_port} )' | wc -l)
+echo "$(date -Is) players=$PLAYERS"
+aws cloudwatch put-metric-data \
+  --region "$REGION" \
+  --namespace "${metric_namespace}" \
+  --metric-name "${metric_name}" \
+  --dimensions "AutoScalingGroupName=${asg_name}" \
+  --unit Count \
+  --value "$PLAYERS"
+EOF
+chmod 755 /usr/local/bin/publish-player-metric.sh
+
+cat > /etc/systemd/system/player-metric.service <<'EOF'
+[Unit]
+Description=Publish Minecraft player count to CloudWatch
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/publish-player-metric.sh
+# Written to a file so the CloudWatch agent ships it.
+StandardOutput=append:/var/log/player-metric.log
+StandardError=append:/var/log/player-metric.log
+EOF
+
+# Keep the local copy of the player metric log small; CloudWatch has the history.
+cat > /etc/logrotate.d/player-metric <<'EOF'
+/var/log/player-metric.log {
+  weekly
+  rotate 2
+  compress
+  missingok
+  notifempty
+  copytruncate
+}
+EOF
+
+cat > /etc/systemd/system/player-metric.timer <<'EOF'
+[Unit]
+Description=Publish Minecraft player count every minute
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=60
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now minecraft.service
+systemctl enable --now player-metric.timer

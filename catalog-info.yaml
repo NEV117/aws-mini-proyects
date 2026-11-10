@@ -1,0 +1,461 @@
+# Backstage catalog for StackRails: the machine-readable copy of TEAM.md.
+# People are not listed: StackRails ignores the Backstage User kind.
+
+# ---------------- Organization ----------------
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: cloud-solutions
+  description: Builds and promotes reusable AWS infrastructure templates
+spec:
+  type: business-unit
+  profile:
+    displayName: Cloud Solutions
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: engineering
+  description: Designs, builds, and operates the infrastructure
+spec:
+  type: department
+  profile:
+    displayName: Engineering
+  parent: group:default/cloud-solutions
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: marketing
+  description: Writes the documentation and promotes the projects
+spec:
+  type: department
+  profile:
+    displayName: Marketing
+  parent: group:default/cloud-solutions
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: cloud-platform-team
+spec:
+  type: team
+  profile:
+    displayName: Cloud Platform Team
+  parent: group:default/engineering
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: growth-team
+spec:
+  type: team
+  profile:
+    displayName: Growth Team
+  parent: group:default/marketing
+  children: []
+
+# ---------------- Systems ----------------
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: sms-notification-service
+  description: REST API that sends SMS messages
+spec:
+  owner: group:default/cloud-platform-team
+  lifecycle: production
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: employee-directory-web-app
+  description: Highly available web application for employee records and photos
+spec:
+  owner: group:default/cloud-platform-team
+  lifecycle: production
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: macos-remote-desktop
+  description: macOS EC2 instance on a dedicated host
+spec:
+  owner: group:default/cloud-platform-team
+  lifecycle: experimental
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: minecraft-game-server
+  description: Minecraft Java Edition servers that scale horizontally behind a load balancer
+spec:
+  owner: group:default/cloud-platform-team
+  lifecycle: experimental
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: project-documentation
+  description: READMEs that explain and promote each project
+spec:
+  owner: group:default/growth-team
+  lifecycle: production
+
+# ---------------- SMS Notification Service ----------------
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: sms-sender-function
+  description: Validates the request and publishes the message (AWS Lambda, Node.js)
+  annotations:
+    backstage.io/source-location: url:https://github.com/NEV117/aws-mini-proyects/tree/main/SMS-Lambda
+spec:
+  type: lambda
+  lifecycle: production
+  owner: group:default/cloud-platform-team
+  system: system:default/sms-notification-service
+  dependsOn:
+    - resource:default/sms-execution-role
+    - resource:default/amazon-sns
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: sms-rest-api
+  description: Receives HTTP POST requests (Amazon API Gateway)
+spec:
+  type: api-gateway
+  owner: group:default/cloud-platform-team
+  system: system:default/sms-notification-service
+  dependsOn:
+    - component:default/sms-sender-function
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: sms-execution-role
+  description: Grants the function its permissions
+spec:
+  type: iam-role
+  owner: group:default/cloud-platform-team
+  system: system:default/sms-notification-service
+
+# ---------------- Employee Directory Web App ----------------
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: flask-application
+  description: Serves the employee directory (Python application on EC2)
+  annotations:
+    backstage.io/source-location: url:https://github.com/NEV117/aws-mini-proyects/tree/main/highly-available-web-app
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/cloud-platform-team
+  system: system:default/employee-directory-web-app
+  dependsOn:
+    - resource:default/employee-images-bucket
+    - resource:default/employees-table
+    - resource:default/aws-training-flaskapp-bucket
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: application-load-balancer
+  description: Distributes traffic to the application instances
+spec:
+  type: load-balancer
+  owner: group:default/cloud-platform-team
+  system: system:default/employee-directory-web-app
+  dependsOn:
+    - resource:default/application-target-group
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: application-target-group
+  description: Tracks the instances that receive traffic
+spec:
+  type: target-group
+  owner: group:default/cloud-platform-team
+  system: system:default/employee-directory-web-app
+  dependsOn:
+    - resource:default/application-auto-scaling-group
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: application-auto-scaling-group
+  description: Scales the instances across Availability Zones
+spec:
+  type: auto-scaling-group
+  owner: group:default/cloud-platform-team
+  system: system:default/employee-directory-web-app
+  dependsOn:
+    - resource:default/application-launch-template
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: application-launch-template
+  description: Defines how instances are launched and bootstrapped
+spec:
+  type: launch-template
+  owner: group:default/cloud-platform-team
+  system: system:default/employee-directory-web-app
+  dependsOn:
+    - component:default/flask-application
+    - resource:default/application-instance-role
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: employee-images-bucket
+  description: Stores employee photos
+spec:
+  type: s3-bucket
+  owner: group:default/cloud-platform-team
+  system: system:default/employee-directory-web-app
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: employees-table
+  description: Stores employee records
+spec:
+  type: dynamodb
+  owner: group:default/cloud-platform-team
+  system: system:default/employee-directory-web-app
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: application-instance-role
+  description: Grants the instances access to S3 and DynamoDB
+spec:
+  type: iam-role
+  owner: group:default/cloud-platform-team
+  system: system:default/employee-directory-web-app
+
+# ---------------- macOS Remote Desktop ----------------
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: macos-instance
+  description: Runs the remote macOS desktop (Amazon EC2)
+  annotations:
+    backstage.io/source-location: url:https://github.com/NEV117/aws-mini-proyects/tree/main/macOS-EC2
+spec:
+  type: other
+  lifecycle: experimental
+  owner: group:default/cloud-platform-team
+  system: system:default/macos-remote-desktop
+  dependsOn:
+    - resource:default/macos-dedicated-host
+    - resource:default/macos-security-group
+    - resource:default/macos-instance-role
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: macos-dedicated-host
+  description: Provides the hardware the instance requires
+spec:
+  type: dedicated-host
+  owner: group:default/cloud-platform-team
+  system: system:default/macos-remote-desktop
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: macos-security-group
+  description: Controls network access to the instance
+spec:
+  type: security-group
+  owner: group:default/cloud-platform-team
+  system: system:default/macos-remote-desktop
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: macos-instance-role
+  description: Grants the instance its permissions
+spec:
+  type: iam-role
+  owner: group:default/cloud-platform-team
+  system: system:default/macos-remote-desktop
+
+# ---------------- Minecraft Game Server ----------------
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: minecraft-server
+  description: Runs the game world (Java application on EC2)
+  annotations:
+    backstage.io/source-location: url:https://github.com/NEV117/aws-mini-proyects/tree/main/video-game-server
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:default/cloud-platform-team
+  system: system:default/minecraft-game-server
+  dependsOn:
+    - resource:default/mojang-downloads
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: player-metric-publisher
+  description: Publishes the player count to CloudWatch every minute (systemd timer on EC2)
+  annotations:
+    # A file, not a folder: two components on one folder leave all its files unlinked.
+    backstage.io/source-location: url:https://github.com/NEV117/aws-mini-proyects/tree/main/video-game-server/terraform/user_data.sh.tftpl
+spec:
+  type: process
+  lifecycle: experimental
+  owner: group:default/cloud-platform-team
+  system: system:default/minecraft-game-server
+  dependsOn:
+    - resource:default/game-server-role
+    - resource:default/amazon-cloudwatch
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: game-network-load-balancer
+  description: Gives players one address and distributes new connections to the servers
+spec:
+  type: load-balancer
+  owner: group:default/cloud-platform-team
+  system: system:default/minecraft-game-server
+  dependsOn:
+    - resource:default/game-target-group
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: game-target-group
+  description: Tracks the servers that receive players, with source IP stickiness
+spec:
+  type: target-group
+  owner: group:default/cloud-platform-team
+  system: system:default/minecraft-game-server
+  dependsOn:
+    - resource:default/game-auto-scaling-group
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: game-auto-scaling-group
+  description: Scales the servers on players per server and CPU
+spec:
+  type: auto-scaling-group
+  owner: group:default/cloud-platform-team
+  system: system:default/minecraft-game-server
+  dependsOn:
+    - resource:default/game-launch-template
+    - component:default/player-metric-publisher
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: game-launch-template
+  description: Defines how servers are launched and bootstrapped
+spec:
+  type: launch-template
+  owner: group:default/cloud-platform-team
+  system: system:default/minecraft-game-server
+  dependsOn:
+    - component:default/minecraft-server
+    - component:default/player-metric-publisher
+    - resource:default/game-server-role
+    - resource:default/game-network
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: game-server-role
+  description: Grants Session Manager access and permission to publish the metric
+spec:
+  type: iam-role
+  owner: group:default/cloud-platform-team
+  system: system:default/minecraft-game-server
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: game-network
+  description: VPC, public subnets and security group for the servers
+spec:
+  type: vpc
+  owner: group:default/cloud-platform-team
+  system: system:default/minecraft-game-server
+
+# ---------------- Project Documentation ----------------
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: project-readmes
+  # TEAM.md's "Repository README" and "Project READMEs" as one component: a component with no
+  # source-location takes the repository's name and wrongly claims its Lambdas (RUNS_ON).
+  description: The repository README and the README of each project
+  annotations:
+    # Repository root: claims every file no project folder claims (README.md, TEAM.md).
+    backstage.io/source-location: url:https://github.com/NEV117/aws-mini-proyects/tree/main
+spec:
+  type: other
+  lifecycle: production
+  owner: group:default/growth-team
+  system: system:default/project-documentation
+  dependsOn:
+    - resource:default/sms-rest-api
+    - resource:default/application-load-balancer
+    - component:default/macos-instance
+    - resource:default/game-network-load-balancer
+
+# ---------------- External services ----------------
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: amazon-sns
+  description: Delivers the SMS messages
+spec:
+  type: topic
+  owner: group:default/cloud-platform-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: aws-training-flaskapp-bucket
+  description: AWS training S3 bucket that provides FlaskApp.zip at startup
+spec:
+  type: s3-bucket
+  owner: group:default/cloud-platform-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: mojang-downloads
+  description: Mojang version manifest and downloads; provides the server jar and the required Java version
+spec:
+  type: external-service
+  owner: group:default/cloud-platform-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: amazon-cloudwatch
+  description: Stores the MinecraftServer/PlayersOnline metric used for scaling
+spec:
+  type: monitoring
+  owner: group:default/cloud-platform-team

@@ -1,0 +1,33 @@
+# stackrails-managed
+.coverage/
+.eggs/
+.git/
+.mypy_cache/
+.next/
+.nuxt/
+.output/
+.pytest_cache/
+.ruff_cache/
+.stackrails/
+.terraform/
+.tox/
+.venv/
+__pycache__/
+build/
+coverage/
+dist/
+egg-info/
+node_modules/
+vendor/
+venv/
+*.min.*
+*.bundle.*
+*.chunk.*
+lib/*.js
+lib/*.d.ts
+site-packages/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+poetry.lock
+# /stackrails-managed

@@ -1,4 +1,23 @@
 AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Service:
+    Type: String
+    Default: 'sms-notification-service'
+    Description: 'Value of the Service tag'
+  Environment:
+    Type: String
+    Default: 'dev'
+    Description: 'Value of the Environment tag'
+  Owner:
+    Type: String
+    Default: 'cloud-platform-team'
+    Description: 'Value of the Owner tag'
+  Project:
+    Type: String
+    Default: 'aws-mini-projects'
+    Description: 'Value of the Project tag'
+
 Resources:
   LambdaExecutionRole:
     Type: 'AWS::IAM::Role'
@@ -22,6 +41,15 @@ Resources:
                   - 'logs:PutLogEvents'
                   - 'sns:Publish'
                 Resource: '*'
+      Tags:
+        - Key: 'Service'
+          Value: !Ref Service
+        - Key: 'Environment'
+          Value: !Ref Environment
+        - Key: 'Owner'
+          Value: !Ref Owner
+        - Key: 'Project'
+          Value: !Ref Project
 
   LambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -33,11 +61,29 @@ Resources:
         S3Key: 'function.zip'
       Runtime: 'nodejs22.x'
       Timeout: 30
+      Tags:
+        - Key: 'Service'
+          Value: !Ref Service
+        - Key: 'Environment'
+          Value: !Ref Environment
+        - Key: 'Owner'
+          Value: !Ref Owner
+        - Key: 'Project'
+          Value: !Ref Project
 
   ApiGatewayRestApi:
     Type: 'AWS::ApiGateway::RestApi'
     Properties:
       Name: 'SMSLambdaApi'
+      Tags:
+        - Key: 'Service'
+          Value: !Ref Service
+        - Key: 'Environment'
+          Value: !Ref Environment
+        - Key: 'Owner'
+          Value: !Ref Owner
+        - Key: 'Project'
+          Value: !Ref Project
 
   ApiGatewayResource:
     Type: 'AWS::ApiGateway::Resource'
@@ -67,6 +113,17 @@ Resources:
     Properties:
       RestApiId: !Ref ApiGatewayRestApi
       StageName: 'stage'
+      # The deployment itself can't be tagged; these tags go on the stage it creates.
+      StageDescription:
+        Tags:
+          - Key: 'Service'
+            Value: !Ref Service
+          - Key: 'Environment'
+            Value: !Ref Environment
+          - Key: 'Owner'
+            Value: !Ref Owner
+          - Key: 'Project'
+            Value: !Ref Project
 
   LambdaInvokePermission:
     Type: 'AWS::Lambda::Permission'
