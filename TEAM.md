@@ -31,6 +31,7 @@ Each system has exactly one owning team.
 | SMS Notification Service | Cloud Platform Team | Ben Okafor | Active | REST API that sends SMS messages |
 | Employee Directory Web App | Cloud Platform Team | Ana Torres | Active | Highly available web application for employee records and photos |
 | macOS Remote Desktop | Cloud Platform Team | Ana Torres | Untested | macOS EC2 instance on a dedicated host |
+| Minecraft Game Server | Cloud Platform Team | Ana Torres | Untested | Minecraft Java Edition servers that scale horizontally behind a load balancer |
 | Project Documentation | Growth Team | Carla Mendez | Active | READMEs that explain and promote each project |
 
 ## Components
@@ -71,6 +72,26 @@ Source: `macOS-EC2/`
 | macOS Security Group | Amazon EC2 security group | Controls network access to the instance |
 | macOS Instance Role | AWS IAM role | Grants the instance its permissions |
 
+### Minecraft Game Server
+
+Source: `video-game-server/`
+
+| Component | Type | Purpose |
+|---|---|---|
+| Game Network Load Balancer | Elastic Load Balancing | Gives players one address and distributes new connections to the servers |
+| Game Target Group | Elastic Load Balancing | Tracks the servers that receive players, with source IP stickiness |
+| Game Auto Scaling Group | Amazon EC2 Auto Scaling | Scales the servers on players per server and CPU |
+| Game Launch Template | Amazon EC2 | Defines how servers are launched and bootstrapped |
+| Minecraft Server | Java application on EC2 | Runs the game world |
+| Player Metric Publisher | systemd timer on EC2 | Publishes the player count to CloudWatch every minute |
+| Game Server Role | AWS IAM role | Grants Session Manager access, and permission to publish the metric and write the server logs |
+| Game Network | Amazon VPC | VPC, public subnets and security group for the servers |
+| Game Log Agent | CloudWatch agent on EC2 | Ships the server, bootstrap and player metric logs |
+| Game Log Groups | Amazon CloudWatch Logs | Store the server, bootstrap, player metric and VPC flow logs |
+| Game Logs Key | AWS KMS key | Encrypts the log groups |
+| Game VPC Flow Log | Amazon VPC Flow Logs | Records network traffic in the game network |
+| Flow Log Role | AWS IAM role | Lets VPC Flow Logs write to its log group |
+
 ### Project Documentation
 
 Source: `README.md` and the `README.md` file in each project folder
@@ -98,6 +119,22 @@ Source: `README.md` and the `README.md` file in each project folder
 | macOS Instance | macOS Dedicated Host | Runs on the host |
 | macOS Instance | macOS Security Group | Uses the group's network rules |
 | macOS Instance | macOS Instance Role | Uses the role's permissions |
+| Game Network Load Balancer | Game Target Group | Forwards players to the group |
+| Game Target Group | Game Auto Scaling Group | Receives its servers from the group |
+| Game Auto Scaling Group | Game Launch Template | Launches servers from the template |
+| Game Auto Scaling Group | Player Metric Publisher | Scales on the published player count |
+| Game Launch Template | Minecraft Server | Installs the server at startup |
+| Game Launch Template | Player Metric Publisher | Installs the publisher at startup |
+| Game Launch Template | Game Server Role | Attaches the role to each server |
+| Game Launch Template | Game Network | Places servers in the subnets and security group |
+| Player Metric Publisher | Game Server Role | Uses the role's permission to publish the metric |
+| Game Launch Template | Game Log Agent | Installs the agent at startup |
+| Game Log Agent | Game Log Groups | Writes the server logs |
+| Game Log Agent | Game Server Role | Uses the role's permission to write the logs |
+| Game Log Groups | Game Logs Key | Encrypt their data with the key |
+| Game VPC Flow Log | Game Network | Records the network's traffic |
+| Game VPC Flow Log | Game Log Groups | Writes to the flow log group |
+| Game VPC Flow Log | Flow Log Role | Uses the role's permissions |
 
 ### Between systems
 
@@ -106,6 +143,7 @@ Source: `README.md` and the `README.md` file in each project folder
 | Project READMEs | Project Documentation | SMS REST API | SMS Notification Service | Documents how to call the API |
 | Project READMEs | Project Documentation | Application Load Balancer | Employee Directory Web App | Documents how to reach the application |
 | Project READMEs | Project Documentation | macOS Instance | macOS Remote Desktop | Documents how to launch the instance |
+| Project READMEs | Project Documentation | Game Network Load Balancer | Minecraft Game Server | Documents how players connect to the server |
 
 ### External services
 
@@ -113,3 +151,5 @@ Source: `README.md` and the `README.md` file in each project folder
 |---|---|---|
 | SMS Sender Function | Amazon SNS | Delivers the SMS messages |
 | Flask Application | AWS training S3 bucket | Provides `FlaskApp.zip` at startup |
+| Minecraft Server | Mojang version manifest and downloads | Provides the server jar and the required Java version at startup |
+| Player Metric Publisher | Amazon CloudWatch | Stores the `MinecraftServer/PlayersOnline` metric used for scaling |
