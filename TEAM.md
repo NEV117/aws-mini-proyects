@@ -33,6 +33,7 @@ Each system has exactly one owning team.
 | macOS Remote Desktop | Cloud Platform Team | Ana Torres | Untested | macOS EC2 instance on a dedicated host |
 | Minecraft Game Server | Cloud Platform Team | Ana Torres | Untested | Minecraft Java Edition servers that scale horizontally behind a load balancer |
 | Project Documentation | Growth Team | Carla Mendez | Active | READMEs that explain and promote each project |
+| External API Wrappers (MCP Servers) | Cloud Platform Team | Ana Torres | Active | MCP servers that wrap the Jira, OpsGenie, and Device Registry APIs and run on AWS Bedrock AgentCore Runtime for the Unity Ops ITSM system |
 
 ## Components
 
@@ -94,6 +95,20 @@ Source: `video-game-server/`
 | Game Logs Key | AWS KMS key | Encrypts the log groups |
 | Game VPC Flow Log | Amazon VPC Flow Logs | Records network traffic in the game network |
 | Flow Log Role | AWS IAM role | Lets VPC Flow Logs write to its log group |
+
+### External API Wrappers (MCP Servers)
+
+Source: `QA/external_api_wrappers/`
+
+This project lives in its own repository at `QA/external_api_wrappers/`, outside this repository. Its files are listed in that project's `TEAM.md`, so they are not repeated here.
+
+| Component | Type | Purpose | Source files |
+|---|---|---|---|
+| Jira MCP Server | Python MCP server (FastMCP) | Exposes Jira issue tools to AI agents | `QA/external_api_wrappers/src/jira/` |
+| OpsGenie MCP Server | Python MCP server (FastMCP) | Exposes OpsGenie alert and incident tools to AI agents | `QA/external_api_wrappers/src/opsgenie/` |
+| Device Registry MCP Server | Python MCP server (FastMCP) | Exposes DeLaval farm device tools to AI agents | `QA/external_api_wrappers/src/device_registry/` |
+| AgentCore Infrastructure | AWS CDK stack | Deploys the MCP servers, Cognito, the AgentCore Gateway and runtimes, and the shared secret | `QA/external_api_wrappers/resources/aws/`, `QA/external_api_wrappers/cdk.json`, `QA/external_api_wrappers/setup.py` |
+| CI/CD Pipelines | GitHub Actions and GitLab CI | Builds, deploys to dev and stage, and backs up the repository | `QA/external_api_wrappers/.github/`, `QA/external_api_wrappers/.gitlab-ci-prod.yml`, `QA/external_api_wrappers/pipelines/` |
 
 ### Project Documentation
 
@@ -158,3 +173,7 @@ Source: `README.md` and the documentation files in each project folder
 | Flask Application | AWS training S3 bucket | Provides `FlaskApp.zip` at startup |
 | Minecraft Server | Mojang version manifest and downloads | Provides the server jar and the required Java version at startup |
 | Player Metric Publisher | Amazon CloudWatch | Stores the `MinecraftServer/PlayersOnline` metric used for scaling |
+| Jira MCP Server | Atlassian Jira Cloud API | Reads and changes issues |
+| OpsGenie MCP Server | Atlassian OpsGenie API | Reads and changes alerts |
+| Device Registry MCP Server | DeLaval Device Registry API | Reads farm device data |
+| AgentCore Infrastructure | Amazon Cognito and AWS Secrets Manager | Issues the tokens that authorize MCP calls and stores the runtime endpoints for the Unity Ops Gateway |
