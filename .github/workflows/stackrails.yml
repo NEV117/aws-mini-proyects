@@ -1,0 +1,18 @@
+name: StackRails governance
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, closed]
+  merge_group:
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+jobs:
+  stackrails:
+    name: StackRails governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: StackRailsAI/stackrails-actions/actions/pr-check@main
+        with:
+          stackrails-url: https://app.stage.stackrails.ai
+          service-key: ${{ secrets.STACKRAILS_SERVICE_KEY }}
