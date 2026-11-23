@@ -1,0 +1,5 @@
+neo4j_uri: bolt://localhost:7687
+neo4j_username: neo4j
+neo4j_password: localtest123
+org_slug: sms-lambda
+embedding_provider: bedrock

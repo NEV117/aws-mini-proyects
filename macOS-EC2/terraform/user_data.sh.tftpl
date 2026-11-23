@@ -1,0 +1,12 @@
+#!/bin/bash
+# Runs once at first boot via ec2-macos-init.
+# Values are single-quoted so password symbols (#, &, *) are not interpreted by bash.
+REMOTE_USER='${remote_username}'
+REMOTE_PASS='${remote_user_password}'
+
+# Create the remote desktop user (admin)
+sudo sysadminctl -addUser "$REMOTE_USER" -fullName "Remote User" -password "$REMOTE_PASS" -admin
+
+# Enable Screen Sharing (VNC on port 5900), as documented by AWS for EC2 Mac
+sudo launchctl enable system/com.apple.screensharing
+sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist

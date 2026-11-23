@@ -4,7 +4,7 @@ Here is a collection of CloudFormation templates and explanations for various AW
 
 - [sms-lambda](./SMS-Lambda)
 - [highly-available-web-app](./highly-available-web-app/)
-- [macos-ec2](./macOS-EC2) (UNTESTED)
+- [macos-ec2](./macOS-EC2)
 - [video-game-server](./video-game-server/) (Minecraft with auto scaling, Terraform)
 - Tpot-HoneyPot (EC2)
 - Tree tier level web app (vm's and containers)
