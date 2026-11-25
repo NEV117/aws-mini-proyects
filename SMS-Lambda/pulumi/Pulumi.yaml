@@ -1,0 +1,22 @@
+name: sms-lambda
+description: SMS sender - API Gateway (POST /send-sms) -> Lambda -> Amazon SNS
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+config:
+  service:
+    type: string
+    default: sms-notification-service
+  environment:
+    type: string
+    default: dev
+  owner:
+    type: string
+    default: cloud-platform-team
+  project:
+    type: string
+    default: aws-mini-projects
+  stageName:
+    type: string
+    default: stage
