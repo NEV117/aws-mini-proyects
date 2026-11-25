@@ -78,6 +78,12 @@ variable "allowed_vnc_cidr" {
   }
 }
 
+variable "enable_ssm_vpc_endpoints" {
+  description = "Create interface VPC endpoints for ssm, ssmmessages and ec2messages, so SSM works without internet egress. Each endpoint is billed hourly. Turn off if the VPC already has these endpoints with private DNS."
+  type        = bool
+  default     = true
+}
+
 variable "remote_username" {
   description = "Username for remote desktop (Screen Sharing) access"
   type        = string
