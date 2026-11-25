@@ -1,0 +1,8 @@
+config:
+  aws:region: us-east-1
+  # You must accept the Minecraft EULA (https://aka.ms/MinecraftEULA):
+  # pulumi config set acceptMinecraftEula true
+  # Restrict who can join (recommended):
+  # pulumi config set --path 'allowedPlayerCidrs[0]' 203.0.113.10/32
+
+  minecraft-server:acceptMinecraftEula: "true"

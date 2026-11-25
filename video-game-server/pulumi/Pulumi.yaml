@@ -1,0 +1,43 @@
+name: minecraft-server
+description: Minecraft Java Edition servers in an Auto Scaling group behind a Network Load Balancer
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+config:
+  # General
+  namePrefix: { type: string, default: minecraft }
+  # Compliance tags
+  service: { type: string, default: minecraft-game-server }
+  environment: { type: string, default: dev }          # dev, staging or prod
+  team: { type: string, default: cloud-platform-team }
+  owner: { type: string, default: ana.torres@example.com }
+  # Network
+  vpcCidr: { type: string, default: 10.20.0.0/16 }
+  publicSubnetCidrs:
+    type: array
+    items: { type: string }
+    default: [10.20.1.0/24, 10.20.2.0/24]
+  allowedPlayerCidrs:
+    type: array
+    items: { type: string }
+    default: [0.0.0.0/0]
+  # Minecraft server
+  acceptMinecraftEula: { type: boolean, default: false } # https://aka.ms/MinecraftEULA
+  minecraftVersion: { type: string, default: latest }
+  serverPort: { type: integer, default: 25565 }
+  maxPlayersPerServer: { type: integer, default: 20 }
+  motd: { type: string, default: AWS Mini Projects Minecraft Server }
+  difficulty: { type: string, default: normal }         # peaceful, easy, normal or hard
+  instanceType: { type: string, default: t3.medium }
+  javaHeapMb: { type: integer, default: 3072 }
+  rootVolumeSizeGb: { type: integer, default: 20 }
+  # Logging
+  logRetentionDays: { type: integer, default: 30 }      # 0 keeps logs forever
+  enableVpcFlowLogs: { type: boolean, default: true }
+  # Auto scaling
+  minServers: { type: integer, default: 1 }
+  maxServers: { type: integer, default: 4 }
+  desiredServers: { type: integer, default: 1 }
+  targetPlayersPerServer: { type: integer, default: 10 }
+  targetCpuPercent: { type: integer, default: 70 }
