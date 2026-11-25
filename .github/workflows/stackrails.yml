@@ -12,7 +12,14 @@ jobs:
     name: StackRails governance
     runs-on: ubuntu-latest
     steps:
+      # The check needs the merge base of the PR's base and head commits,
+      # so fetch the full history instead of a shallow clone.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: StackRailsAI/stackrails-actions/actions/pr-check@main
+        env:
+          GIT_DEPTH: 0
         with:
           stackrails-url: https://app.stage.stackrails.ai
           service-key: ${{ secrets.STACKRAILS_SERVICE_KEY }}
