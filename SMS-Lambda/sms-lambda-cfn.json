@@ -1,0 +1,279 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "Service": {
+      "Type": "String",
+      "Default": "sms-notification-service",
+      "Description": "Value of the Service tag"
+    },
+    "Environment": {
+      "Type": "String",
+      "Default": "dev",
+      "Description": "Value of the Environment tag"
+    },
+    "Owner": {
+      "Type": "String",
+      "Default": "cloud-platform-team",
+      "Description": "Value of the Owner tag"
+    },
+    "Project": {
+      "Type": "String",
+      "Default": "aws-mini-projects",
+      "Description": "Value of the Project tag"
+    }
+  },
+  "Resources": {
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "LambdaExecutionPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "sns:Publish"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": {
+              "Ref": "Service"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "Owner"
+            }
+          },
+          {
+            "Key": "Project",
+            "Value": {
+              "Ref": "Project"
+            }
+          }
+        ]
+      }
+    },
+    "LambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaExecutionRole",
+            "Arn"
+          ]
+        },
+        "Code": {
+          "ZipFile": "const { SNSClient, PublishCommand } = require(\"@aws-sdk/client-sns\");\nconst client = new SNSClient({});\nexports.handler = async (event) => {\n  try {\n    const { phoneNumber, countryCode, message } = JSON.parse(event.body || \"{}\");\n    if (!phoneNumber || !countryCode || !message) {\n      return { statusCode: 400, body: JSON.stringify({ message: \"Missing phoneNumber, countryCode or message.\" }) };\n    }\n    const result = await client.send(new PublishCommand({ Message: message, PhoneNumber: `+${countryCode}${phoneNumber}` }));\n    return { statusCode: 200, body: JSON.stringify({ message: \"SMS sent.\", result }) };\n  } catch (error) {\n    console.error(error);\n    return { statusCode: 500, body: JSON.stringify({ message: error.message || \"Unknown error\" }) };\n  }\n};\n"
+        },
+        "Runtime": "nodejs22.x",
+        "Timeout": 30,
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": {
+              "Ref": "Service"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "Owner"
+            }
+          },
+          {
+            "Key": "Project",
+            "Value": {
+              "Ref": "Project"
+            }
+          }
+        ],
+        "FunctionName": "sms-lambda-cfn-json"
+      }
+    },
+    "ApiGatewayRestApi": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": "SMSLambdaApiCfnJson",
+        "Tags": [
+          {
+            "Key": "Service",
+            "Value": {
+              "Ref": "Service"
+            }
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "Environment"
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": {
+              "Ref": "Owner"
+            }
+          },
+          {
+            "Key": "Project",
+            "Value": {
+              "Ref": "Project"
+            }
+          }
+        ]
+      }
+    },
+    "ApiGatewayResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "ParentId": {
+          "Fn::GetAtt": [
+            "ApiGatewayRestApi",
+            "RootResourceId"
+          ]
+        },
+        "PathPart": "send-sms",
+        "RestApiId": {
+          "Ref": "ApiGatewayRestApi"
+        }
+      }
+    },
+    "ApiGatewayMethod": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "AuthorizationType": "NONE",
+        "HttpMethod": "POST",
+        "ResourceId": {
+          "Ref": "ApiGatewayResource"
+        },
+        "RestApiId": {
+          "Ref": "ApiGatewayRestApi"
+        },
+        "Integration": {
+          "IntegrationHttpMethod": "POST",
+          "Type": "AWS_PROXY",
+          "Uri": {
+            "Fn::Sub": [
+              "arn:aws:apigateway:${Region}:lambda:path/2015-03-31/functions/${LambdaArn}/invocations",
+              {
+                "Region": {
+                  "Ref": "AWS::Region"
+                },
+                "LambdaArn": {
+                  "Fn::GetAtt": [
+                    "LambdaFunction",
+                    "Arn"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "ApiGatewayDeployment": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "DependsOn": "ApiGatewayMethod",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "ApiGatewayRestApi"
+        },
+        "StageName": "stage",
+        "StageDescription": {
+          "Tags": [
+            {
+              "Key": "Service",
+              "Value": {
+                "Ref": "Service"
+              }
+            },
+            {
+              "Key": "Environment",
+              "Value": {
+                "Ref": "Environment"
+              }
+            },
+            {
+              "Key": "Owner",
+              "Value": {
+                "Ref": "Owner"
+              }
+            },
+            {
+              "Key": "Project",
+              "Value": {
+                "Ref": "Project"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "LambdaInvokePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "LambdaFunction"
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Sub": [
+            "arn:aws:execute-api:${Region}:${AccountId}:${ApiId}/*/POST/send-sms",
+            {
+              "Region": {
+                "Ref": "AWS::Region"
+              },
+              "AccountId": {
+                "Ref": "AWS::AccountId"
+              },
+              "ApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Description": "SMS-Lambda as a JSON CloudFormation template (StackRails JSON template test)"
+}
