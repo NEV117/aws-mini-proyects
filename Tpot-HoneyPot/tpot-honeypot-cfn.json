@@ -1,0 +1,380 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "T-Pot multi-honeypot platform (Standard/HIVE) on a single EC2 instance in its own isolated VPC.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": { "default": "Access" },
+          "Parameters": ["AdminCidr", "KeyName", "WebUsername"]
+        },
+        {
+          "Label": { "default": "Instance" },
+          "Parameters": ["InstanceType", "VolumeSize", "DebianAmiId", "TPotBranch"]
+        },
+        {
+          "Label": { "default": "Network" },
+          "Parameters": ["VpcCidr", "SubnetCidr"]
+        },
+        {
+          "Label": { "default": "Tags" },
+          "Parameters": ["Service", "Environment", "Owner", "Project"]
+        }
+      ]
+    }
+  },
+  "Parameters": {
+    "AdminCidr": {
+      "Type": "String",
+      "Description": "Your public IP in CIDR form (e.g. 203.0.113.10/32). Only this range can reach the admin SSH (64295) and the web UI (64297).",
+      "AllowedPattern": "^(\\d{1,3}\\.){3}\\d{1,3}/(\\d|[12]\\d|3[0-2])$",
+      "ConstraintDescription": "Must be an IPv4 CIDR such as 203.0.113.10/32."
+    },
+    "KeyName": {
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Description": "Existing EC2 key pair for the admin SSH login (user 'admin', port 64295 after install)."
+    },
+    "WebUsername": {
+      "Type": "String",
+      "Default": "tpotadmin",
+      "Description": "T-Pot web UI user name. The password is generated and stored in Secrets Manager.",
+      "AllowedPattern": "^[A-Za-z0-9_.-]{3,32}$",
+      "ConstraintDescription": "3-32 characters: letters, digits, '_', '.', '-'."
+    },
+    "InstanceType": {
+      "Type": "String",
+      "Default": "t3.xlarge",
+      "AllowedValues": ["t3.xlarge", "t3a.xlarge", "m5.xlarge", "m6i.xlarge", "t3.2xlarge"],
+      "Description": "T-Pot Standard/HIVE needs at least 16 GB of RAM."
+    },
+    "VolumeSize": {
+      "Type": "Number",
+      "Default": 128,
+      "MinValue": 128,
+      "MaxValue": 1024,
+      "Description": "Root volume size in GiB (gp3, encrypted). T-Pot needs at least 128 GiB."
+    },
+    "DebianAmiId": {
+      "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+      "Default": "/aws/service/debian/release/13/latest/amd64",
+      "Description": "Debian 13 amd64 AMI. The T-Pot installer only accepts the current Debian release."
+    },
+    "TPotBranch": {
+      "Type": "String",
+      "Default": "master",
+      "Description": "Branch or tag of github.com/telekom-security/tpotce to install. Pin a release tag for repeatable builds."
+    },
+    "VpcCidr": {
+      "Type": "String",
+      "Default": "10.70.0.0/16",
+      "Description": "CIDR of the dedicated honeypot VPC."
+    },
+    "SubnetCidr": {
+      "Type": "String",
+      "Default": "10.70.1.0/24",
+      "Description": "CIDR of the public subnet inside the VPC."
+    },
+    "Service": {
+      "Type": "String",
+      "Default": "tpot-honeypot",
+      "Description": "Value of the Service tag"
+    },
+    "Environment": {
+      "Type": "String",
+      "Default": "dev",
+      "Description": "Value of the Environment tag"
+    },
+    "Owner": {
+      "Type": "String",
+      "Default": "cloud-platform-team",
+      "Description": "Value of the Owner tag"
+    },
+    "Project": {
+      "Type": "String",
+      "Default": "aws-mini-projects",
+      "Description": "Value of the Project tag"
+    }
+  },
+  "Resources": {
+    "HoneypotVpc": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": { "Ref": "VpcCidr" },
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames": true,
+        "Tags": [
+          { "Key": "Name", "Value": { "Fn::Sub": "${AWS::StackName}-vpc" } },
+          { "Key": "Service", "Value": { "Ref": "Service" } },
+          { "Key": "Environment", "Value": { "Ref": "Environment" } },
+          { "Key": "Owner", "Value": { "Ref": "Owner" } },
+          { "Key": "Project", "Value": { "Ref": "Project" } }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          { "Key": "Name", "Value": { "Fn::Sub": "${AWS::StackName}-igw" } },
+          { "Key": "Service", "Value": { "Ref": "Service" } },
+          { "Key": "Environment", "Value": { "Ref": "Environment" } },
+          { "Key": "Owner", "Value": { "Ref": "Owner" } },
+          { "Key": "Project", "Value": { "Ref": "Project" } }
+        ]
+      }
+    },
+    "GatewayAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": { "Ref": "HoneypotVpc" },
+        "InternetGatewayId": { "Ref": "InternetGateway" }
+      }
+    },
+    "PublicSubnet": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": { "Ref": "HoneypotVpc" },
+        "CidrBlock": { "Ref": "SubnetCidr" },
+        "AvailabilityZone": { "Fn::Select": [0, { "Fn::GetAZs": "" }] },
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          { "Key": "Name", "Value": { "Fn::Sub": "${AWS::StackName}-public" } },
+          { "Key": "Service", "Value": { "Ref": "Service" } },
+          { "Key": "Environment", "Value": { "Ref": "Environment" } },
+          { "Key": "Owner", "Value": { "Ref": "Owner" } },
+          { "Key": "Project", "Value": { "Ref": "Project" } }
+        ]
+      }
+    },
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": { "Ref": "HoneypotVpc" },
+        "Tags": [
+          { "Key": "Name", "Value": { "Fn::Sub": "${AWS::StackName}-public-rt" } },
+          { "Key": "Service", "Value": { "Ref": "Service" } },
+          { "Key": "Environment", "Value": { "Ref": "Environment" } },
+          { "Key": "Owner", "Value": { "Ref": "Owner" } },
+          { "Key": "Project", "Value": { "Ref": "Project" } }
+        ]
+      }
+    },
+    "DefaultRoute": {
+      "Type": "AWS::EC2::Route",
+      "DependsOn": "GatewayAttachment",
+      "Properties": {
+        "RouteTableId": { "Ref": "PublicRouteTable" },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": { "Ref": "InternetGateway" }
+      }
+    },
+    "PublicSubnetRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": { "Ref": "PublicSubnet" },
+        "RouteTableId": { "Ref": "PublicRouteTable" }
+      }
+    },
+    "HoneypotSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "T-Pot: honeypot ports open to the internet, management ports (64294-64297) only from AdminCidr",
+        "VpcId": { "Ref": "HoneypotVpc" },
+        "SecurityGroupIngress": [
+          {
+            "Description": "Honeypot TCP services (internet)",
+            "IpProtocol": "tcp",
+            "FromPort": 1,
+            "ToPort": 64000,
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "Description": "Honeypot UDP services (internet)",
+            "IpProtocol": "udp",
+            "FromPort": 1,
+            "ToPort": 64000,
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "Description": "Admin SSH (T-Pot moves sshd to 64295)",
+            "IpProtocol": "tcp",
+            "FromPort": 64295,
+            "ToPort": 64295,
+            "CidrIp": { "Ref": "AdminCidr" }
+          },
+          {
+            "Description": "T-Pot web UI (Kibana, Attack Map, Spiderfoot...)",
+            "IpProtocol": "tcp",
+            "FromPort": 64297,
+            "ToPort": 64297,
+            "CidrIp": { "Ref": "AdminCidr" }
+          }
+        ],
+        "Tags": [
+          { "Key": "Name", "Value": { "Fn::Sub": "${AWS::StackName}-sg" } },
+          { "Key": "Service", "Value": { "Ref": "Service" } },
+          { "Key": "Environment", "Value": { "Ref": "Environment" } },
+          { "Key": "Owner", "Value": { "Ref": "Owner" } },
+          { "Key": "Project", "Value": { "Ref": "Project" } }
+        ]
+      }
+    },
+    "WebUserSecret": {
+      "Type": "AWS::SecretsManager::Secret",
+      "Properties": {
+        "Description": "Password of the T-Pot web UI user",
+        "GenerateSecretString": {
+          "PasswordLength": 24,
+          "ExcludePunctuation": true
+        },
+        "Tags": [
+          { "Key": "Service", "Value": { "Ref": "Service" } },
+          { "Key": "Environment", "Value": { "Ref": "Environment" } },
+          { "Key": "Owner", "Value": { "Ref": "Owner" } },
+          { "Key": "Project", "Value": { "Ref": "Project" } }
+        ]
+      }
+    },
+    "InstanceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": { "Service": "ec2.amazonaws.com" },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "ReadWebUserSecret",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "secretsmanager:GetSecretValue",
+                  "Resource": { "Ref": "WebUserSecret" }
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": [
+          { "Key": "Service", "Value": { "Ref": "Service" } },
+          { "Key": "Environment", "Value": { "Ref": "Environment" } },
+          { "Key": "Owner", "Value": { "Ref": "Owner" } },
+          { "Key": "Project", "Value": { "Ref": "Project" } }
+        ]
+      }
+    },
+    "InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [{ "Ref": "InstanceRole" }]
+      }
+    },
+    "HoneypotLaunchTemplate": {
+      "Type": "AWS::EC2::LaunchTemplate",
+      "Properties": {
+        "LaunchTemplateData": {
+          "MetadataOptions": {
+            "HttpTokens": "required",
+            "HttpPutResponseHopLimit": 1,
+            "HttpEndpoint": "enabled"
+          },
+          "TagSpecifications": [
+            {
+              "ResourceType": "volume",
+              "Tags": [
+                { "Key": "Name", "Value": { "Fn::Sub": "${AWS::StackName}-root" } },
+                { "Key": "Service", "Value": { "Ref": "Service" } },
+                { "Key": "Environment", "Value": { "Ref": "Environment" } },
+                { "Key": "Owner", "Value": { "Ref": "Owner" } },
+                { "Key": "Project", "Value": { "Ref": "Project" } }
+              ]
+            }
+          ]
+        },
+        "TagSpecifications": [
+          {
+            "ResourceType": "launch-template",
+            "Tags": [
+              { "Key": "Service", "Value": { "Ref": "Service" } },
+              { "Key": "Environment", "Value": { "Ref": "Environment" } },
+              { "Key": "Owner", "Value": { "Ref": "Owner" } },
+              { "Key": "Project", "Value": { "Ref": "Project" } }
+            ]
+          }
+        ]
+      }
+    },
+    "HoneypotInstance": {
+      "Type": "AWS::EC2::Instance",
+      "DependsOn": "DefaultRoute",
+      "Properties": {
+        "ImageId": { "Ref": "DebianAmiId" },
+        "InstanceType": { "Ref": "InstanceType" },
+        "KeyName": { "Ref": "KeyName" },
+        "IamInstanceProfile": { "Ref": "InstanceProfile" },
+        "SubnetId": { "Ref": "PublicSubnet" },
+        "SecurityGroupIds": [{ "Ref": "HoneypotSecurityGroup" }],
+        "LaunchTemplate": {
+          "LaunchTemplateId": { "Ref": "HoneypotLaunchTemplate" },
+          "Version": { "Fn::GetAtt": ["HoneypotLaunchTemplate", "LatestVersionNumber"] }
+        },
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/xvda",
+            "Ebs": {
+              "VolumeSize": { "Ref": "VolumeSize" },
+              "VolumeType": "gp3",
+              "Encrypted": true,
+              "DeleteOnTermination": true
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Sub": [
+              "#!/bin/bash\n# Unattended T-Pot install. Progress: /var/log/tpot-bootstrap.log\nset -euxo pipefail\nexec > >(tee -a /var/log/tpot-bootstrap.log) 2>&1\n\nexport DEBIAN_FRONTEND=noninteractive\napt-get update\napt-get install -y git awscli\n\nWEB_PW=$(aws secretsmanager get-secret-value --region ${AWS::Region} --secret-id '${SecretArn}' --query SecretString --output text)\n\n# The installer refuses to run as root and expects its clone in ~/tpotce.\n# 'admin' is the Debian AMI default user and already has passwordless sudo.\nsudo -u admin -H git clone --depth 1 --branch '${TPotBranch}' https://github.com/telekom-security/tpotce /home/admin/tpotce\ncd /home/admin/tpotce\nsudo -u admin -H ./install.sh -s -t h -u '${WebUsername}' -p \"$WEB_PW\"\nunset WEB_PW\n\necho 'T-Pot installed, rebooting. Admin SSH is now on tcp/64295.'\nreboot\n",
+              { "SecretArn": { "Ref": "WebUserSecret" } }
+            ]
+          }
+        },
+        "Tags": [
+          { "Key": "Name", "Value": { "Fn::Sub": "${AWS::StackName}-tpot" } },
+          { "Key": "Service", "Value": { "Ref": "Service" } },
+          { "Key": "Environment", "Value": { "Ref": "Environment" } },
+          { "Key": "Owner", "Value": { "Ref": "Owner" } },
+          { "Key": "Project", "Value": { "Ref": "Project" } }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "PublicIp": {
+      "Description": "Public IP of the honeypot",
+      "Value": { "Fn::GetAtt": ["HoneypotInstance", "PublicIp"] }
+    },
+    "WebUiUrl": {
+      "Description": "T-Pot web UI (self-signed certificate)",
+      "Value": { "Fn::Sub": "https://${HoneypotInstance.PublicIp}:64297" }
+    },
+    "AdminSshCommand": {
+      "Description": "Admin SSH once the install has finished and the instance rebooted",
+      "Value": { "Fn::Sub": "ssh -i <path-to-${KeyName}.pem> -p 64295 admin@${HoneypotInstance.PublicIp}" }
+    },
+    "WebPasswordCommand": {
+      "Description": "Prints the generated web UI password",
+      "Value": { "Fn::Sub": "aws secretsmanager get-secret-value --region ${AWS::Region} --secret-id ${WebUserSecret} --query SecretString --output text" }
+    },
+    "InstanceId": {
+      "Description": "EC2 instance ID",
+      "Value": { "Ref": "HoneypotInstance" }
+    }
+  }
+}
