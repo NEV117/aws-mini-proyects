@@ -6,10 +6,9 @@ Here is a collection of CloudFormation templates and explanations for various AW
 - [highly-available-web-app](./highly-available-web-app/)
 - [macos-ec2](./macOS-EC2)
 - [video-game-server](./video-game-server/) (Minecraft with auto scaling, Terraform)
-- Tpot-HoneyPot (EC2)
+- [tpot-honeypot](./Tpot-HoneyPot/) (T-Pot multi-honeypot on EC2, CloudFormation JSON)
 - Tree tier level web app (vm's and containers)
 <!-- 
-- [Tpot-HoneyPot](./Tpot-HoneyPot)
 - [Tree tier level web app](./three-tier-web-app)
 - [AutoScaling Web App Architecture](./AutoScaling-Web-App)
 - [AWS Lambda Function processing SQS orders](./Lambda-SQS) -->
