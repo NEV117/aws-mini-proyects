@@ -32,6 +32,7 @@ Each system has exactly one owning team.
 | Employee Directory Web App | Cloud Platform Team | Ana Torres | Active | Highly available web application for employee records and photos |
 | macOS Remote Desktop | Cloud Platform Team | Ana Torres | Untested | macOS EC2 instance on a dedicated host |
 | Minecraft Game Server | Cloud Platform Team | Ana Torres | Untested | Minecraft Java Edition servers that scale horizontally behind a load balancer |
+| T-Pot Honeypot | Cloud Platform Team | Ana Torres | Active | T-Pot multi-honeypot platform on one EC2 instance in an isolated VPC |
 | Project Documentation | Growth Team | Carla Mendez | Active | READMEs that explain and promote each project |
 | External API Wrappers (MCP Servers) | Cloud Platform Team | Ana Torres | Active | MCP servers that wrap the Jira, OpsGenie, and Device Registry APIs and run on AWS Bedrock AgentCore Runtime for the Unity Ops ITSM system |
 
@@ -96,6 +97,18 @@ Source: `video-game-server/`
 | Game VPC Flow Log | Amazon VPC Flow Logs | Records network traffic in the game network |
 | Flow Log Role | AWS IAM role | Lets VPC Flow Logs write to its log group |
 
+### T-Pot Honeypot
+
+Source: `Tpot-HoneyPot/`
+
+| Component | Type | Purpose | Source files |
+|---|---|---|---|
+| T-Pot Instance | Amazon EC2 (Debian 13, Docker) | Installs and runs T-Pot: the honeypots, the web UI and the dashboards | `Tpot-HoneyPot/tpot-honeypot-cfn.json` |
+| Honeypot Network | Amazon VPC | Dedicated VPC, public subnet, internet gateway and route table that isolate the honeypot | `Tpot-HoneyPot/tpot-honeypot-cfn.json` |
+| Honeypot Security Group | Amazon EC2 security group | Opens the honeypot ports to the internet and the admin SSH and web UI only to the admin IP | `Tpot-HoneyPot/tpot-honeypot-cfn.json` |
+| Honeypot Instance Role | AWS IAM role | Lets the instance read the web UI password, and nothing else | `Tpot-HoneyPot/tpot-honeypot-cfn.json` |
+| Web User Secret | AWS Secrets Manager | Generates and stores the web UI password | `Tpot-HoneyPot/tpot-honeypot-cfn.json` |
+
 ### External API Wrappers (MCP Servers)
 
 Source: `QA/external_api_wrappers/`
@@ -117,7 +130,7 @@ Source: `README.md` and the documentation files in each project folder
 | Component | Type | Purpose | Source files |
 |---|---|---|---|
 | Repository README | Markdown | Introduces the collection of projects | `README.md` |
-| Project READMEs | Markdown and images | Explain how to deploy and use each project | `SMS-Lambda/README.md`, `SMS-Lambda/terraform/README.md`, `SMS-Lambda/img/architecture.png`, `SMS-Lambda/img/project.JPG`, `highly-available-web-app/README.md`, `highly-available-web-app/terraform/README.md`, `highly-available-web-app/img/architecture.png`, `highly-available-web-app/old_notes.md`, `macOS-EC2/README.md` |
+| Project READMEs | Markdown and images | Explain how to deploy and use each project | `SMS-Lambda/README.md`, `SMS-Lambda/terraform/README.md`, `SMS-Lambda/img/architecture.png`, `SMS-Lambda/img/project.JPG`, `highly-available-web-app/README.md`, `highly-available-web-app/terraform/README.md`, `highly-available-web-app/img/architecture.png`, `highly-available-web-app/old_notes.md`, `macOS-EC2/README.md`, `Tpot-HoneyPot/README.md` |
 | Repository Metadata | Repository files | License, Git ignore rules, and this organization file | `LICENSE`, `TEAM.md`, `.gitignore`, `SMS-Lambda/terraform/.gitignore`, `highly-available-web-app/terraform/.gitignore` |
 
 ## Dependencies
@@ -155,6 +168,10 @@ Source: `README.md` and the documentation files in each project folder
 | Game VPC Flow Log | Game Network | Records the network's traffic |
 | Game VPC Flow Log | Game Log Groups | Writes to the flow log group |
 | Game VPC Flow Log | Flow Log Role | Uses the role's permissions |
+| T-Pot Instance | Honeypot Network | Runs in the VPC's public subnet |
+| T-Pot Instance | Honeypot Security Group | Uses the group's network rules |
+| T-Pot Instance | Honeypot Instance Role | Uses the role's permissions |
+| T-Pot Instance | Web User Secret | Reads the web UI password at install time |
 
 ### Between systems
 
@@ -164,6 +181,7 @@ Source: `README.md` and the documentation files in each project folder
 | Project READMEs | Project Documentation | Application Load Balancer | Employee Directory Web App | Documents how to reach the application |
 | Project READMEs | Project Documentation | macOS Instance | macOS Remote Desktop | Documents how to launch the instance |
 | Project READMEs | Project Documentation | Game Network Load Balancer | Minecraft Game Server | Documents how players connect to the server |
+| Project READMEs | Project Documentation | T-Pot Instance | T-Pot Honeypot | Documents how to deploy the honeypot and reach its web UI |
 
 ### External services
 
@@ -173,6 +191,7 @@ Source: `README.md` and the documentation files in each project folder
 | Flask Application | AWS training S3 bucket | Provides `FlaskApp.zip` at startup |
 | Minecraft Server | Mojang version manifest and downloads | Provides the server jar and the required Java version at startup |
 | Player Metric Publisher | Amazon CloudWatch | Stores the `MinecraftServer/PlayersOnline` metric used for scaling |
+| T-Pot Instance | T-Pot GitHub repository and container images | Provides the installer and the honeypot images at startup |
 | Jira MCP Server | Atlassian Jira Cloud API | Reads and changes issues |
 | OpsGenie MCP Server | Atlassian OpsGenie API | Reads and changes alerts |
 | Device Registry MCP Server | DeLaval Device Registry API | Reads farm device data |

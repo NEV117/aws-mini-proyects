@@ -91,6 +91,15 @@ spec:
 apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
+  name: tpot-honeypot
+  description: T-Pot multi-honeypot platform on one EC2 instance in an isolated VPC
+spec:
+  owner: group:default/cloud-platform-team
+  lifecycle: production
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
   name: minecraft-game-server
   description: Minecraft Java Edition servers that scale horizontally behind a load balancer
 spec:
@@ -399,6 +408,67 @@ spec:
   owner: group:default/cloud-platform-team
   system: system:default/minecraft-game-server
 
+# ---------------- T-Pot Honeypot ----------------
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: tpot-instance
+  description: Installs and runs T-Pot, its honeypots, web UI and dashboards (Amazon EC2, Debian 13, Docker)
+  annotations:
+    backstage.io/source-location: url:https://github.com/NEV117/aws-mini-proyects/tree/main/Tpot-HoneyPot
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/cloud-platform-team
+  system: system:default/tpot-honeypot
+  dependsOn:
+    - resource:default/honeypot-network
+    - resource:default/honeypot-security-group
+    - resource:default/honeypot-instance-role
+    - resource:default/tpot-web-user-secret
+    - resource:default/tpot-upstream
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: honeypot-network
+  description: Dedicated VPC, public subnet, internet gateway and route table that isolate the honeypot
+spec:
+  type: vpc
+  owner: group:default/cloud-platform-team
+  system: system:default/tpot-honeypot
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: honeypot-security-group
+  description: Opens the honeypot ports to the internet and the admin SSH and web UI only to the admin IP
+spec:
+  type: security-group
+  owner: group:default/cloud-platform-team
+  system: system:default/tpot-honeypot
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: honeypot-instance-role
+  description: Lets the instance read the web UI password, and nothing else
+spec:
+  type: iam-role
+  owner: group:default/cloud-platform-team
+  system: system:default/tpot-honeypot
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: tpot-web-user-secret
+  description: Generates and stores the T-Pot web UI password (AWS Secrets Manager)
+spec:
+  type: secret
+  owner: group:default/cloud-platform-team
+  system: system:default/tpot-honeypot
+
 # ---------------- Project Documentation ----------------
 ---
 apiVersion: backstage.io/v1alpha1
@@ -421,6 +491,7 @@ spec:
     - resource:default/application-load-balancer
     - component:default/macos-instance
     - resource:default/game-network-load-balancer
+    - component:default/tpot-instance
 
 # ---------------- External services ----------------
 ---
@@ -458,4 +529,13 @@ metadata:
   description: Stores the MinecraftServer/PlayersOnline metric used for scaling
 spec:
   type: monitoring
+  owner: group:default/cloud-platform-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: tpot-upstream
+  description: T-Pot GitHub repository and container images; provide the installer and the honeypot images at startup
+spec:
+  type: external-service
   owner: group:default/cloud-platform-team
